@@ -38,8 +38,6 @@ import network_awareness
 import network_monitor
 import network_delay_detector
 
-import copy
-
 
 CONF = cfg.CONF
 
@@ -55,8 +53,9 @@ class ShortestForwarding(app_manager.RyuApp):
     OFP_VERSIONS = [ofproto_v1_3.OFP_VERSION]
     _CONTEXTS = {
         "network_awareness": network_awareness.NetworkAwareness,
-        "network_monitor": network_monitor.NetworkMonitor,
-        "network_delay_detector": network_delay_detector.NetworkDelayDetector}
+        # "network_monitor": network_monitor.NetworkMonitor,
+        # "network_delay_detector": network_delay_detector.NetworkDelayDetector
+    }
 
     WEIGHT_MODEL = {'hop': 'weight', 'delay': "delay", "bw": "bw"}
 
@@ -68,133 +67,6 @@ class ShortestForwarding(app_manager.RyuApp):
         # self.delay_detector = kwargs["network_delay_detector"]
         self.datapaths = {}
         self.weight = self.WEIGHT_MODEL[CONF.weight]
-
-    def set_weight_mode(self, weight):
-        """
-            set weight mode of path calculating.
-        """
-        self.weight = weight
-        if self.weight == self.WEIGHT_MODEL['hop']:
-            self.awareness.get_shortest_paths(weight=self.weight)
-        return True
-
-    @set_ev_cls(ofp_event.EventOFPStateChange,
-                [MAIN_DISPATCHER, DEAD_DISPATCHER])
-    def _state_change_handler(self, ev):
-        """
-            Collect datapath information.
-        """
-        datapath = ev.datapath
-        if ev.state == MAIN_DISPATCHER:
-            if not datapath.id in self.datapaths:
-                self.logger.debug('register datapath: %016x', datapath.id)
-                self.datapaths[datapath.id] = datapath
-        elif ev.state == DEAD_DISPATCHER:
-            if datapath.id in self.datapaths:
-                self.logger.debug('unregister datapath: %016x', datapath.id)
-                del self.datapaths[datapath.id]
-
-    def add_flow(self, dp, p, match, actions, idle_timeout=0, hard_timeout=0):
-        """
-            Send a flow entry to datapath.
-        """
-        ofproto = dp.ofproto
-        parser = dp.ofproto_parser
-
-        inst = [parser.OFPInstructionActions(ofproto.OFPIT_APPLY_ACTIONS,
-                                             actions)]
-
-        mod = parser.OFPFlowMod(datapath=dp, priority=p,
-                                idle_timeout=idle_timeout,
-                                hard_timeout=hard_timeout,
-                                match=match, instructions=inst)
-        dp.send_msg(mod)
-
-    def send_flow_mod(self, datapath, flow_info, src_port, dst_port):
-        """
-            Build flow entry, and send it to datapath.
-        """
-        parser = datapath.ofproto_parser
-        actions = []
-        actions.append(parser.OFPActionOutput(dst_port))
-
-        match = parser.OFPMatch(
-            in_port=src_port, eth_type=flow_info[0],
-            ipv4_src=flow_info[1], ipv4_dst=flow_info[2])
-
-        self.add_flow(datapath, 1, match, actions,
-                      idle_timeout=15, hard_timeout=60)
-
-    def _build_packet_out(self, datapath, buffer_id, src_port, dst_port, data):
-        """
-            Build packet out object.
-        """
-        actions = []
-        if dst_port:
-            actions.append(datapath.ofproto_parser.OFPActionOutput(dst_port))
-
-        msg_data = None
-        if buffer_id == datapath.ofproto.OFP_NO_BUFFER:
-            if data is None:
-                return None
-            msg_data = data
-
-        out = datapath.ofproto_parser.OFPPacketOut(
-            datapath=datapath, buffer_id=buffer_id,
-            data=msg_data, in_port=src_port, actions=actions)
-        return out
-
-    def send_packet_out(self, datapath, buffer_id, src_port, dst_port, data):
-        """
-            Send packet out packet to assigned datapath.
-        """
-        out = self._build_packet_out(datapath, buffer_id,
-                                     src_port, dst_port, data)
-        if out:
-            datapath.send_msg(out)
-
-    def get_port(self, dst_ip, access_table):
-        """
-            Get access port if dst host.
-            access_table: {(sw,port) :(ip, mac)}
-        """
-        if access_table:
-            if isinstance(access_table.values()[0], tuple):
-                for key in access_table.keys():
-                    if dst_ip == access_table[key][0]:
-                        dst_port = key[1]
-                        return dst_port
-        return None
-
-    def get_port_pair_from_link(self, link_to_port, src_dpid, dst_dpid):
-        """
-            Get port pair of link, so that controller can install flow entry.
-        """
-        if (src_dpid, dst_dpid) in link_to_port:
-            return link_to_port[(src_dpid, dst_dpid)]
-        else:
-            self.logger.info("dpid:%s->dpid:%s is not in links" % (
-                             src_dpid, dst_dpid))
-            return None
-
-    def flood(self, msg):
-        """
-            Flood ARP packet to the access port
-            which has no record of host.
-        """
-        datapath = msg.datapath
-        ofproto = datapath.ofproto
-        parser = datapath.ofproto_parser
-
-        for dpid in self.awareness.access_ports:
-            for port in self.awareness.access_ports[dpid]:
-                if (dpid, port) not in self.awareness.access_table.keys():
-                    datapath = self.datapaths[dpid]
-                    out = self._build_packet_out(
-                        datapath, ofproto.OFP_NO_BUFFER,
-                        ofproto.OFPP_CONTROLLER, port, msg.data)
-                    datapath.send_msg(out)
-        self.logger.debug("Flooding msg")
 
     def arp_forwarding(self, msg, src_ip, dst_ip):
         """ Send ARP packet to the destination host,
@@ -217,21 +89,24 @@ class ShortestForwarding(app_manager.RyuApp):
         else:
             self.flood(msg)
 
-    def get_path(self, src, dst, weight):
+    def flood(self, msg):
         """
-            Get shortest path from network awareness module.
+            Flood ARP packet to the access port
+            which has no record of host.
         """
-        shortest_paths = self.awareness.shortest_paths
-        graph = self.awareness.graph
+        datapath = msg.datapath
+        ofproto = datapath.ofproto
+        parser = datapath.ofproto_parser
 
-        _graph = copy.deepcopy(graph)
-
-        paths = self.awareness.k_shortest_paths(_graph, src, dst)
-
-        self.logger.info(paths);
-
-        return paths
-
+        for dpid in self.awareness.access_ports:
+            for port in self.awareness.access_ports[dpid]:
+                if (dpid, port) not in self.awareness.access_table.keys():
+                    datapath = self.datapaths[dpid]
+                    out = self._build_packet_out(
+                        datapath, ofproto.OFP_NO_BUFFER,
+                        ofproto.OFPP_CONTROLLER, port, msg.data)
+                    datapath.send_msg(out)
+        self.logger.debug("Flooding msg")
 
     def get_sw(self, dpid, in_port, src, dst):
         """
@@ -253,9 +128,131 @@ class ShortestForwarding(app_manager.RyuApp):
 
         return src_sw, dst_sw
 
+    def get_path(self, src, dst, weight):
+        """
+            Get shortest path from network awareness module.
+        """
+        shortest_paths = self.awareness.shortest_paths
+        graph = self.awareness.graph
+
+        self.logger.info(shortest_paths.get(src).get(dst)[0])
+
+        return shortest_paths.get(src).get(dst)[0]
+        # elif weight == self.WEIGHT_MODEL['delay']:
+        #     # If paths existed, return it, else calculate it and save it.
+        #     try:
+        #         paths = shortest_paths.get(src).get(dst)
+        #         return paths[0]
+        #     except:
+        #         paths = self.awareness.k_shortest_paths(graph, src, dst,
+        #                                                 weight=weight)
+        #
+        #         shortest_paths.setdefault(src, {})
+        #         shortest_paths[src].setdefault(dst, paths)
+        #         return paths[0]
+        # elif weight == self.WEIGHT_MODEL['bw']:
+        #     # Because all paths will be calculate
+        #     # when call self.monitor.get_best_path_by_bw
+        #     # So we just need to call it once in a period,
+        #     # and then, we can get path directly.
+        #     try:
+        #         # if path is existed, return it.
+        #         path = self.monitor.best_paths.get(src).get(dst)
+        #         return path
+        #     except:
+        #         # else, calculate it, and return.
+        #         result = self.monitor.get_best_path_by_bw(graph,
+        #                                                   shortest_paths)
+        #         paths = result[1]
+        #         best_path = paths.get(src).get(dst)
+        #         return best_path
+
+    def get_port_pair_from_link(self, link_to_port, src_dpid, dst_dpid):
+        """
+            Get port pair of link, so that controller can install flow entry.
+        """
+        if (src_dpid, dst_dpid) in link_to_port:
+            return link_to_port[(src_dpid, dst_dpid)]
+        else:
+            self.logger.info("dpid:%s->dpid:%s is not in links" % (
+                             src_dpid, dst_dpid))
+            return None
+
+    def send_flow_mod(self, datapath, flow_info, src_port, dst_port):
+        """
+            Build flow entry, and send it to datapath.
+        """
+        parser = datapath.ofproto_parser
+        actions = []
+        actions.append(parser.OFPActionOutput(dst_port))
+
+        match = parser.OFPMatch(
+            in_port=src_port, eth_type=flow_info[0],
+            ipv4_src=flow_info[1], ipv4_dst=flow_info[2])
+
+        self.add_flow(datapath, 1, match, actions,
+                      idle_timeout=15, hard_timeout=60)
+
+    def get_port(self, dst_ip, access_table):
+        """
+            Get access port if dst host.
+            access_table: {(sw,port) :(ip, mac)}
+        """
+        if access_table:
+            if isinstance(access_table.values()[0], tuple):
+                for key in access_table.keys():
+                    if dst_ip == access_table[key][0]:
+                        dst_port = key[1]
+                        return dst_port
+        return None
+
+    def send_packet_out(self, datapath, buffer_id, src_port, dst_port, data):
+        """
+            Send packet out packet to assigned datapath.
+        """
+        out = self._build_packet_out(datapath, buffer_id,
+                                     src_port, dst_port, data)
+        if out:
+            datapath.send_msg(out)
+
+    def _build_packet_out(self, datapath, buffer_id, src_port, dst_port, data):
+        """
+            Build packet out object.
+        """
+        actions = []
+        if dst_port:
+            actions.append(datapath.ofproto_parser.OFPActionOutput(dst_port))
+
+        msg_data = None
+        if buffer_id == datapath.ofproto.OFP_NO_BUFFER:
+            if data is None:
+                return None
+            msg_data = data
+
+        out = datapath.ofproto_parser.OFPPacketOut(
+            datapath=datapath, buffer_id=buffer_id,
+            data=msg_data, in_port=src_port, actions=actions)
+        return out
+
+    def add_flow(self, dp, p, match, actions, idle_timeout=0, hard_timeout=0):
+        """
+            Send a flow entry to datapath.
+        """
+        ofproto = dp.ofproto
+        parser = dp.ofproto_parser
+
+        inst = [parser.OFPInstructionActions(ofproto.OFPIT_APPLY_ACTIONS,
+                                             actions)]
+
+        mod = parser.OFPFlowMod(datapath=dp, priority=p,
+                                idle_timeout=idle_timeout,
+                                hard_timeout=hard_timeout,
+                                match=match, instructions=inst)
+        dp.send_msg(mod)
+
     def install_flow(self, datapaths, link_to_port, access_table, path,
                      flow_info, buffer_id, data=None):
-        ''' 
+        '''
             Install flow entires for roundtrip: go and back.
             @parameter: path=[dpid1, dpid2...]
                         flow_info=(eth_type, src_ip, dst_ip, in_port)
@@ -320,6 +317,15 @@ class ShortestForwarding(app_manager.RyuApp):
             self.send_flow_mod(first_dp, back_info, out_port, in_port)
             self.send_packet_out(first_dp, buffer_id, in_port, out_port, data)
 
+    def set_weight_mode(self, weight):
+        """
+            set weight mode of path calculating.
+        """
+        self.weight = weight
+        if self.weight == self.WEIGHT_MODEL['hop']:
+            self.awareness.get_shortest_paths(weight=self.weight)
+        return True
+
     def shortest_forwarding(self, msg, eth_type, ip_src, ip_dst):
         """
             To calculate shortest forwarding path and install them into datapaths.
@@ -341,9 +347,25 @@ class ShortestForwarding(app_manager.RyuApp):
                 # install flow entries to datapath along side the path.
                 self.install_flow(self.datapaths,
                                   self.awareness.link_to_port,
-                                  self.awareness.access_table, path[0],
+                                  self.awareness.access_table, path,
                                   flow_info, msg.buffer_id, msg.data)
         return
+
+    @set_ev_cls(ofp_event.EventOFPStateChange,
+                [MAIN_DISPATCHER, DEAD_DISPATCHER])
+    def _state_change_handler(self, ev):
+        """
+            Collect datapath information.
+        """
+        datapath = ev.datapath
+        if ev.state == MAIN_DISPATCHER:
+            if not datapath.id in self.datapaths:
+                self.logger.debug('register datapath: %016x', datapath.id)
+                self.datapaths[datapath.id] = datapath
+        elif ev.state == DEAD_DISPATCHER:
+            if datapath.id in self.datapaths:
+                self.logger.debug('unregister datapath: %016x', datapath.id)
+                del self.datapaths[datapath.id]
 
     @set_ev_cls(ofp_event.EventOFPPacketIn, MAIN_DISPATCHER)
     def _packet_in_handler(self, ev):
