@@ -1,19 +1,3 @@
-# Copyright (C) 2016 Li Cheng at Beijing University of Posts
-# and Telecommunications. www.muzixing.com
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-# http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
-# implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-
 # conding=utf-8
 import logging
 import struct
@@ -53,7 +37,7 @@ class ShortestForwarding(app_manager.RyuApp):
     OFP_VERSIONS = [ofproto_v1_3.OFP_VERSION]
     _CONTEXTS = {
         "network_awareness": network_awareness.NetworkAwareness,
-        # "network_monitor": network_monitor.NetworkMonitor,
+        "network_monitor": network_monitor.NetworkMonitor
         # "network_delay_detector": network_delay_detector.NetworkDelayDetector
     }
 
@@ -63,7 +47,7 @@ class ShortestForwarding(app_manager.RyuApp):
         super(ShortestForwarding, self).__init__(*args, **kwargs)
         self.name = 'shortest_forwarding'
         self.awareness = kwargs["network_awareness"]
-        # self.monitor = kwargs["network_monitor"]
+        self.monitor = kwargs["network_monitor"]
         # self.delay_detector = kwargs["network_delay_detector"]
         self.datapaths = {}
         self.weight = self.WEIGHT_MODEL[CONF.weight]
@@ -135,9 +119,32 @@ class ShortestForwarding(app_manager.RyuApp):
         shortest_paths = self.awareness.shortest_paths
         graph = self.awareness.graph
 
-        self.logger.info(shortest_paths.get(src).get(dst)[0])
+        self.logger.info(shortest_paths.get(src).get(dst))
 
-        return shortest_paths.get(src).get(dst)[0]
+        max_bandwidth_path = self.monitor.get_max_bandwidth_path(graph, shortest_paths.get(src).get(dst))
+
+        self.logger.info(max_bandwidth_path)
+
+        return max_bandwidth_path
+
+        # try:
+        #     # if path is existed, return it.
+        #     path = self.monitor.best_paths.get(src).get(dst)
+        #     return path
+        # except:
+        #     # else, calculate it, and return.
+        #     result = self.monitor.get_best_path_by_bw(graph,
+        #                                               shortest_paths)
+        #     paths = result[1]
+        #     best_path = paths.get(src).get(dst)
+        #     return best_path
+
+        # shortest_paths = self.awareness.shortest_paths
+        # graph = self.awareness.graph
+        #
+        # self.logger.info(shortest_paths.get(src).get(dst)[0])
+        #
+        # return shortest_paths.get(src).get(dst)[0]
         # elif weight == self.WEIGHT_MODEL['delay']:
         #     # If paths existed, return it, else calculate it and save it.
         #     try:
@@ -386,6 +393,8 @@ class ShortestForwarding(app_manager.RyuApp):
 
         if isinstance(ip_pkt, ipv4.ipv4):
             self.logger.debug("IPV4 processing")
+            self.logger.info(ip_pkt.src)
+            self.logger.info(ip_pkt.total_length)
             if len(pkt.get_protocols(ethernet.ethernet)):
                 eth_type = pkt.get_protocols(ethernet.ethernet)[0].ethertype
                 self.shortest_forwarding(msg, eth_type, ip_pkt.src, ip_pkt.dst)

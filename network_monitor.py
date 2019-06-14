@@ -1,19 +1,4 @@
-# Copyright (C) 2016 Li Cheng at Beijing University of Posts
-# and Telecommunications. www.muzixing.com
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-# http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
-# implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-
+# conding=utf-8
 from __future__ import division
 import copy
 from operator import attrgetter
@@ -28,6 +13,7 @@ from ryu.ofproto import ofproto_v1_3
 from ryu.lib import hub
 from ryu.lib.packet import packet
 import setting
+import time
 
 
 CONF = cfg.CONF
@@ -45,12 +31,14 @@ class NetworkMonitor(app_manager.RyuApp):
         self.name = 'monitor'
         self.datapaths = {}
         self.port_stats = {}
-        self.port_speed = {}
+        self.port_info = {}
         self.flow_stats = {}
         self.flow_speed = {}
         self.stats = {}
         self.port_features = {}
         self.free_bandwidth = {}
+        self.link_info = {}
+        self.link_info_flag = False
         self.awareness = lookup_service_brick('awareness')
         self.graph = None
         self.capabilities = None
@@ -80,7 +68,7 @@ class NetworkMonitor(app_manager.RyuApp):
         """
             Main entry method of monitoring traffic.
         """
-        while CONF.weight == 'bw':
+        while True:
             self.stats['flow'] = {}
             self.stats['port'] = {}
             for dp in self.datapaths.values():
@@ -90,17 +78,14 @@ class NetworkMonitor(app_manager.RyuApp):
                 self.capabilities = None
                 self.best_paths = None
             hub.sleep(setting.MONITOR_PERIOD)
-            if self.stats['flow'] or self.stats['port']:
-                self.show_stat('flow')
-                self.show_stat('port')
-                hub.sleep(1)
+            self.show_stat()
 
     def _save_bw_graph(self):
         """
             Save bandwidth data into networkx graph object.
         """
-        while CONF.weight == 'bw':
-            self.graph = self.create_bw_graph(self.free_bandwidth)
+        while True:
+            self.create_bw_graph()
             self.logger.debug("save_freebandwidth")
             hub.sleep(setting.MONITOR_PERIOD)
 
@@ -121,89 +106,58 @@ class NetworkMonitor(app_manager.RyuApp):
         req = parser.OFPFlowStatsRequest(datapath)
         datapath.send_msg(req)
 
-    def get_min_bw_of_links(self, graph, path, min_bw):
-        """
-            Getting bandwidth of path. Actually, the mininum bandwidth
-            of links is the bandwith, because it is the neck bottle of path.
-        """
-        _len = len(path)
-        if _len > 1:
-            minimal_band_width = min_bw
-            for i in xrange(_len-1):
-                pre, curr = path[i], path[i+1]
-                if 'bandwidth' in graph[pre][curr]:
-                    bw = graph[pre][curr]['bandwidth']
-                    minimal_band_width = min(bw, minimal_band_width)
-                else:
-                    continue
-            return minimal_band_width
-        return min_bw
-
-    def get_best_path_by_bw(self, graph, paths):
-        """
-            Get best path by comparing paths.
-        """
-        capabilities = {}
-        best_paths = copy.deepcopy(paths)
-
-        for src in paths:
-            for dst in paths[src]:
-                if src == dst:
-                    best_paths[src][src] = [src]
-                    capabilities.setdefault(src, {src: setting.MAX_CAPACITY})
-                    capabilities[src][src] = setting.MAX_CAPACITY
-                    continue
-                max_bw_of_paths = 0
-                best_path = paths[src][dst][0]
-                for path in paths[src][dst]:
-                    min_bw = setting.MAX_CAPACITY
-                    min_bw = self.get_min_bw_of_links(graph, path, min_bw)
-                    if min_bw > max_bw_of_paths:
-                        max_bw_of_paths = min_bw
-                        best_path = path
-
-                best_paths[src][dst] = best_path
-                capabilities.setdefault(src, {dst: max_bw_of_paths})
-                capabilities[src][dst] = max_bw_of_paths
-        self.capabilities = capabilities
-        self.best_paths = best_paths
-        return capabilities, best_paths
-
-    def create_bw_graph(self, bw_dict):
+    def create_bw_graph(self):
         """
             Save bandwidth data into networkx graph object.
         """
         try:
-            graph = self.awareness.graph
             link_to_port = self.awareness.link_to_port
             for link in link_to_port:
+                self.link_info_flag = True
                 (src_dpid, dst_dpid) = link
                 (src_port, dst_port) = link_to_port[link]
-                if src_dpid in bw_dict and dst_dpid in bw_dict:
-                    bw_src = bw_dict[src_dpid][src_port]
-                    bw_dst = bw_dict[dst_dpid][dst_port]
-                    bandwidth = min(bw_src, bw_dst)
-                    # add key:value of bandwidth into graph.
-                    graph[src_dpid][dst_dpid]['bandwidth'] = bandwidth
-                else:
-                    graph[src_dpid][dst_dpid]['bandwidth'] = 0
-            return graph
+                src_tx = (src_dpid, src_port)
+                dst_rx = (dst_dpid, dst_port)
+                src_tx_bandwidth = self.port_info[src_tx]['speedTx']
+                dst_rx_bandwidth = self.port_info[dst_rx]['speedRx']
+
+                if link not in self.link_info:
+                    self.link_info[link] = {}
+                    self.link_info[link]['bandwidth'] = 0
+                    self.link_info[link]['freebandwidth'] = setting.MAX_CAPACITY - self.link_info[link]['bandwidth']
+
+                self.link_info[link]['bandwidth'] = min(src_tx_bandwidth, dst_rx_bandwidth)
+                self.link_info[link]['freebandwidth'] = setting.MAX_CAPACITY - self.link_info[link]['bandwidth']
+
         except:
             self.logger.info("Create bw graph exception")
             if self.awareness is None:
                 self.awareness = lookup_service_brick('awareness')
             return self.awareness.graph
 
-    def _save_freebandwidth(self, dpid, port_no, speed):
-        # Calculate free bandwidth of port and save it.
-        port_state = self.port_features.get(dpid).get(port_no)
-        if port_state:
-            capacity = port_state[2]
-            curr_bw = self._get_free_bw(capacity, speed)
-            self.free_bandwidth[dpid].setdefault(port_no, None)
-            self.free_bandwidth[dpid][port_no] = curr_bw
-        else:
-            self.logger.info("Fail in getting port state")
+
+    def get_max_bandwidth_path(self, graph, paths):
+        """
+            Get path with max bandwidth
+        """
+        max_bandwidth = 0
+        max_bandwidth_path = paths[0]
+
+        if(len(paths) > 1):
+            for path in paths:
+                path_length = len(path)
+                min_bandwidth = setting.MAX_CAPACITY
+                if path_length > 1:
+                    for i in xrange(path_length - 1):
+                        pre = path[i]
+                        cur = path[i + 1]
+                        link_bandwidth = self.link_info[(pre, cur)]['freebandwidth']
+                        min_bandwidth = min(link_bandwidth, min_bandwidth)
+                if min_bandwidth > max_bandwidth:
+                    max_bandwidth = min_bandwidth
+                    max_bandwidth_path = path
+        return max_bandwidth_path
+
 
     def _save_stats(self, _dict, key, value, length):
         if key not in _dict:
@@ -260,7 +214,6 @@ class NetworkMonitor(app_manager.RyuApp):
 
             speed = self._get_speed(self.flow_stats[dpid][key][-1][1],
                                     pre, period)
-
             self._save_stats(self.flow_speed[dpid], key, speed, 5)
 
     @set_ev_cls(ofp_event.EventOFPPortStatsReply, MAIN_DISPATCHER)
@@ -279,25 +232,38 @@ class NetworkMonitor(app_manager.RyuApp):
             if port_no != ofproto_v1_3.OFPP_LOCAL:
                 key = (dpid, port_no)
                 value = (stat.tx_bytes, stat.rx_bytes, stat.rx_errors,
-                         stat.duration_sec, stat.duration_nsec)
+                         stat.duration_sec, stat.duration_nsec, time.time())
 
                 self._save_stats(self.port_stats, key, value, 5)
 
                 # Get port speed.
-                pre = 0
-                period = setting.MONITOR_PERIOD
                 tmp = self.port_stats[key]
+
+                if key not in self.port_info:
+                    self.port_info[key] = {}
+                    self.port_info[key]['speedTx'] = 0
+                    self.port_info[key]['speedRx'] = 0
+
                 if len(tmp) > 1:
-                    pre = tmp[-2][0] + tmp[-2][1]
-                    period = self._get_period(tmp[-1][3], tmp[-1][4],
-                                              tmp[-2][3], tmp[-2][4])
 
-                speed = self._get_speed(
-                    self.port_stats[key][-1][0] + self.port_stats[key][-1][1],
-                    pre, period)
+                    # txBytes
+                    preTx = tmp[-2][0]
+                    nowTx = tmp[-1][0]
+                    preTime = tmp[-2][5]
+                    nowTime = tmp[-1][5]
+                    datas = (nowTx - preTx) * 8 / (1024 * 1024)
+                    times = nowTime - preTime
+                    speedTx = round(datas / times, 2)
 
-                self._save_stats(self.port_speed, key, speed, 5)
-                self._save_freebandwidth(dpid, port_no, speed)
+                    # rxBytes
+                    preRx = tmp[-2][1]
+                    nowRx = tmp[-1][1]
+                    dataRx = (nowRx - preRx) * 8 / (1024 * 1024)
+                    speedRx = round(dataRx / times, 2)
+
+                    self.port_info[key]['speedTx'] = speedTx
+                    self.port_info[key]['speedRx'] = speedRx
+
 
     @set_ev_cls(ofp_event.EventOFPPortDescStatsReply, MAIN_DISPATCHER)
     def port_desc_stats_reply_handler(self, ev):
@@ -363,7 +329,7 @@ class NetworkMonitor(app_manager.RyuApp):
         else:
             print "switch%d: Illeagal port state %s %s" % (port_no, reason)
 
-    def show_stat(self, type):
+    def show_stat(self):
         '''
             Show statistics info according to data type.
             type: 'port' 'flow'
@@ -371,9 +337,9 @@ class NetworkMonitor(app_manager.RyuApp):
         if setting.TOSHOW is False:
             return
 
-        bodys = self.stats[type]
-        if(type == 'flow'):
-            print('datapath         ''   in-port        ip-dst      '
+        if(self.stats['flow']):
+            bodys = self.stats['flow']
+            print('datapath ''  port    ip-dst      '
                   'out-port packets  bytes  flow-speed(B/s)')
             print('---------------- ''  -------- ----------------- '
                   '-------- -------- -------- -----------')
@@ -382,7 +348,7 @@ class NetworkMonitor(app_manager.RyuApp):
                     [flow for flow in bodys[dpid] if flow.priority == 1],
                     key=lambda flow: (flow.match.get('in_port'),
                                       flow.match.get('ipv4_dst'))):
-                    print('%016x %8x %17s %8x %8d %8d %8.1f' % (
+                    print('%6s %6x %10s %8x %8d %8d %8.1f' % (
                         dpid,
                         stat.match['in_port'], stat.match['ipv4_dst'],
                         stat.instructions[0].actions[0].port,
@@ -393,25 +359,38 @@ class NetworkMonitor(app_manager.RyuApp):
                             stat.instructions[0].actions[0].port)][-1])))
             print '\n'
 
-        if(type == 'port'):
-            print('datapath             port   ''rx-pkts  rx-bytes rx-error '
-                  'tx-pkts  tx-bytes tx-error  port-speed(B/s)'
-                  ' current-capacity(Kbps)  '
-                  'port-stat   link-stat')
-            print('----------------   -------- ''-------- -------- -------- '
-                  '-------- -------- -------- '
-                  '----------------  ----------------   '
-                  '   -----------    -----------')
-            format = '%016x %8x %8d %8d %8d %8d %8d %8d %8.1f %16d %16s %16s'
+        if(self.stats['port']):
+            bodys = self.stats['port']
+            print('datapath  port   ''rx-pkts  rx-bytes '
+                  'tx-pkts  tx-bytes rx-speed(Mbit/s)'
+                  ' tx-speed(Mbit/s)  ')
+            print('----------------   -------- ''-------- --------'
+                  '-------- --------'
+                  '----------------  ----------------   ')
+            format = '%6s %6x %8d %8d %8d %8d    %8.2f    %8.2f'
             for dpid in bodys.keys():
                 for stat in sorted(bodys[dpid], key=attrgetter('port_no')):
                     if stat.port_no != ofproto_v1_3.OFPP_LOCAL:
                         print(format % (
                             dpid, stat.port_no,
-                            stat.rx_packets, stat.rx_bytes, stat.rx_errors,
-                            stat.tx_packets, stat.tx_bytes, stat.tx_errors,
-                            abs(self.port_speed[(dpid, stat.port_no)][-1]),
-                            self.port_features[dpid][stat.port_no][2],
-                            self.port_features[dpid][stat.port_no][0],
-                            self.port_features[dpid][stat.port_no][1]))
+                            stat.rx_packets, stat.rx_bytes,
+                            stat.tx_packets, stat.tx_bytes,
+                            self.port_info[(dpid, stat.port_no)]['speedRx'],
+                            self.port_info[(dpid, stat.port_no)]['speedTx'],))
             print '\n'
+
+        # Show the bandwidth of links
+        if(self.link_info_flag == True):
+            print('src        dst      bandwidth(Mbit/s)    freebandwidth(Mbit/s')
+            format = '%2s %10s %16.2f %16.2f'
+            for link in self.awareness.link_to_port:
+                (src_dpid, dst_dpid) = link
+                bandwidth = self.link_info[link]['bandwidth']
+                freebandwidth = self.link_info[link]['freebandwidth']
+                print(format % (src_dpid, dst_dpid, bandwidth, freebandwidth))
+        # for link in self.awareness.link_to_port:
+        #     (src_dpid, dst_dpid) = link
+        #     self.logger.info(src_dpid)
+        #     self.logger.info(dst_dpid)
+        #     if(self.link_info_flag == True):
+        #         self.logger.info(self.link_info[link]['bandwidth'])
