@@ -198,7 +198,6 @@ class NetworkAwareness(app_manager.RyuApp):
         else:
             self.shortest_paths = self.all_k_shortest_paths(
                 self.graph, weight='weight', k=CONF.k_paths)
-        # self.logger.info(self.shortest_paths)
 
     def register_access_info(self):
         """

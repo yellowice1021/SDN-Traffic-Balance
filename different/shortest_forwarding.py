@@ -50,6 +50,7 @@ class ShortestForwarding(app_manager.RyuApp):
         self.monitor = kwargs["network_monitor"]
         # self.delay_detector = kwargs["network_delay_detector"]
         self.datapaths = {}
+        self.elephant_info = []
         self.weight = self.WEIGHT_MODEL[CONF.weight]
 
     def arp_forwarding(self, msg, src_ip, dst_ip):
@@ -116,67 +117,18 @@ class ShortestForwarding(app_manager.RyuApp):
         else:
             return None
 
-    def get_path(self, src, dst, weight):
+    def get_path(self, src, dst, ip_src, ip_dst):
         """
             Get shortest path from network awareness module.
         """
         shortest_paths = self.awareness.shortest_paths
         graph = self.awareness.graph
 
-        self.logger.info(shortest_paths.get(src).get(dst))
+        # self.logger.info(shortest_paths.get(src).get(dst))
 
-        max_bandwidth_path = self.monitor.get_max_bandwidth_path(graph, shortest_paths.get(src).get(dst))
+        main_path = self.monitor.get_path_bandwidth_elephant(shortest_paths.get(src).get(dst), ip_src, ip_dst)
 
-        self.logger.info(max_bandwidth_path)
-
-        return max_bandwidth_path
-
-        # try:
-        #     # if path is existed, return it.
-        #     path = self.monitor.best_paths.get(src).get(dst)
-        #     return path
-        # except:
-        #     # else, calculate it, and return.
-        #     result = self.monitor.get_best_path_by_bw(graph,
-        #                                               shortest_paths)
-        #     paths = result[1]
-        #     best_path = paths.get(src).get(dst)
-        #     return best_path
-
-        # shortest_paths = self.awareness.shortest_paths
-        # graph = self.awareness.graph
-        #
-        # self.logger.info(shortest_paths.get(src).get(dst)[0])
-        #
-        # return shortest_paths.get(src).get(dst)[0]
-        # elif weight == self.WEIGHT_MODEL['delay']:
-        #     # If paths existed, return it, else calculate it and save it.
-        #     try:
-        #         paths = shortest_paths.get(src).get(dst)
-        #         return paths[0]
-        #     except:
-        #         paths = self.awareness.k_shortest_paths(graph, src, dst,
-        #                                                 weight=weight)
-        #
-        #         shortest_paths.setdefault(src, {})
-        #         shortest_paths[src].setdefault(dst, paths)
-        #         return paths[0]
-        # elif weight == self.WEIGHT_MODEL['bw']:
-        #     # Because all paths will be calculate
-        #     # when call self.monitor.get_best_path_by_bw
-        #     # So we just need to call it once in a period,
-        #     # and then, we can get path directly.
-        #     try:
-        #         # if path is existed, return it.
-        #         path = self.monitor.best_paths.get(src).get(dst)
-        #         return path
-        #     except:
-        #         # else, calculate it, and return.
-        #         result = self.monitor.get_best_path_by_bw(graph,
-        #                                                   shortest_paths)
-        #         paths = result[1]
-        #         best_path = paths.get(src).get(dst)
-        #         return best_path
+        return main_path
 
     def get_port_pair_from_link(self, link_to_port, src_dpid, dst_dpid):
         """
@@ -207,7 +159,7 @@ class ShortestForwarding(app_manager.RyuApp):
                 ipv4_src=flow_info[1], ipv4_dst=flow_info[2], ip_proto=6, tcp_src=5001)
 
         self.add_flow(datapath, 40, match, actions,
-                      idle_timeout=15, hard_timeout=60)
+                      idle_timeout=15, hard_timeout=120)
 
     def get_port(self, dst_ip, access_table):
         """
@@ -355,7 +307,7 @@ class ShortestForwarding(app_manager.RyuApp):
             src_sw, dst_sw = result[0], result[1]
             if dst_sw:
                 # Path has already calculated, just get it.
-                path = self.get_path(src_sw, dst_sw, weight=self.weight)
+                path = self.get_path(src_sw, dst_sw, ip_src, ip_dst)
                 self.logger.info("[PATH]%s<-->%s: %s" % (ip_src, ip_dst, path))
                 flow_info = (eth_type, ip_src, ip_dst, in_port)
                 # install flow entries to datapath along side the path.
@@ -404,4 +356,14 @@ class ShortestForwarding(app_manager.RyuApp):
             self.logger.debug("IPV4 processing")
             if len(pkt.get_protocols(ethernet.ethernet)):
                 eth_type = pkt.get_protocols(ethernet.ethernet)[0].ethertype
+                src = ip_pkt.src
+                dst = ip_pkt.dst
                 self.shortest_forwarding(msg, eth_type, ip_pkt.src, ip_pkt.dst)
+                # if (src, dst) not in self.elephant_info:
+                #     self.shortest_forwarding(msg, eth_type, ip_pkt.src, ip_pkt.dst)
+                #     self.elephant_info.append((src, dst))
+                #     if len(self.elephant_info) > 1:
+                #         self.elephant_info.pop(0)
+                # else:
+                #     result = self.get_sw(datapath.id, in_port, src, dst)
+                #     src_sw, dst_sw = result[0], result[1]

@@ -14,6 +14,7 @@ from ryu.lib import hub
 from ryu.lib.packet import packet
 import setting
 import time
+import heapq
 
 
 CONF = cfg.CONF
@@ -39,6 +40,9 @@ class NetworkMonitor(app_manager.RyuApp):
         self.free_bandwidth = {}
         self.link_info = {}
         self.link_info_flag = False
+        self.link_elephant_flow = {}
+        self.elephant_info = []
+        self.elephant_path = {}
         self.awareness = lookup_service_brick('awareness')
         self.graph = None
         self.capabilities = None
@@ -46,7 +50,6 @@ class NetworkMonitor(app_manager.RyuApp):
         # Start to green thread to monitor traffic and calculating
         # free bandwidth of links respectively.
         self.monitor_thread = hub.spawn(self._monitor)
-        self.save_freebandwidth_thread = hub.spawn(self._save_bw_graph)
 
     @set_ev_cls(ofp_event.EventOFPStateChange,
                 [MAIN_DISPATCHER, DEAD_DISPATCHER])
@@ -77,17 +80,10 @@ class NetworkMonitor(app_manager.RyuApp):
                 # refresh data.
                 self.capabilities = None
                 self.best_paths = None
+            self.link_elephant_flow = {}
+            self.elephant_info = []
             hub.sleep(setting.MONITOR_PERIOD)
-            self.show_stat()
-
-    def _save_bw_graph(self):
-        """
-            Save bandwidth data into networkx graph object.
-        """
-        while True:
-            self.create_bw_graph()
-            self.logger.debug("save_freebandwidth")
-            hub.sleep(setting.MONITOR_PERIOD)
+            # self.show_stat()
 
     def _request_stats(self, datapath):
         """
@@ -106,58 +102,63 @@ class NetworkMonitor(app_manager.RyuApp):
         req = parser.OFPFlowStatsRequest(datapath)
         datapath.send_msg(req)
 
-    def create_bw_graph(self):
+    def get_path_bandwidth_elephant(self, paths, ip_src, ip_dst):
         """
-            Save bandwidth data into networkx graph object.
+            get with with max bandwidth and min elephant
         """
-        try:
-            link_to_port = self.awareness.link_to_port
-            for link in link_to_port:
-                self.link_info_flag = True
-                (src_dpid, dst_dpid) = link
-                (src_port, dst_port) = link_to_port[link]
-                src_tx = (src_dpid, src_port)
-                dst_rx = (dst_dpid, dst_port)
-                src_tx_bandwidth = self.port_info[src_tx]['speedTx']
-                dst_rx_bandwidth = self.port_info[dst_rx]['speedRx']
 
-                if link not in self.link_info:
-                    self.link_info[link] = {}
-                    self.link_info[link]['bandwidth'] = 0
-                    self.link_info[link]['freebandwidth'] = setting.MAX_CAPACITY - self.link_info[link]['bandwidth']
-
-                self.link_info[link]['bandwidth'] = min(src_tx_bandwidth, dst_rx_bandwidth)
-                self.link_info[link]['freebandwidth'] = setting.MAX_CAPACITY - self.link_info[link]['bandwidth']
-
-        except:
-            self.logger.info("Create bw graph exception")
-            if self.awareness is None:
-                self.awareness = lookup_service_brick('awareness')
-            return self.awareness.graph
-
-
-    def get_max_bandwidth_path(self, graph, paths):
-        """
-            Get path with max bandwidth
-        """
-        max_bandwidth = 0
-        max_bandwidth_path = paths[0]
+        link_bandwidth = setting.MAX_CAPACITY
+        max_elephant_bandwidth = 0
+        min_elephant_path = paths[0]
 
         if(len(paths) > 1):
             for path in paths:
                 path_length = len(path)
-                min_bandwidth = setting.MAX_CAPACITY
-                if path_length > 1:
-                    for i in xrange(path_length - 1):
-                        pre = path[i]
-                        cur = path[i + 1]
-                        link_bandwidth = self.link_info[(pre, cur)]['freebandwidth']
-                        min_bandwidth = min(link_bandwidth, min_bandwidth)
-                if min_bandwidth > max_bandwidth:
-                    max_bandwidth = min_bandwidth
-                    max_bandwidth_path = path
-        return max_bandwidth_path
+                min_equal_bandwidth = link_bandwidth
+                for i in xrange(path_length - 1):
+                    pre = path[i]
+                    cur = path[i + 1]
+                    link = (pre, cur)
+                    (src_port, dst_port) = self.awareness.link_to_port[link]
+                    if link in self.link_elephant_flow:
+                        elephant_number = self.link_elephant_flow[link]
+                    else:
+                        elephant_number = 0
+                    link_left_bandwidth = self.free_bandwidth[pre][src_port]
+                    equal_bandwidth = link_left_bandwidth / (elephant_number + 1)
+                    min_equal_bandwidth = min(equal_bandwidth, min_equal_bandwidth)
+                    # self.logger.info(link)
+                    # self.logger.info(link_left_bandwidth)
+                    # self.logger.info(equal_bandwidth)
+                if min_equal_bandwidth > max_elephant_bandwidth:
+                    max_elephant_bandwidth = min_equal_bandwidth
+                    min_elephant_path = path
+                # self.logger.info(path)
+                # self.logger.info(min_equal_bandwidth)
 
+        path_length = len(min_elephant_path)
+        for i in xrange(path_length - 1):
+            pre = min_elephant_path[i]
+            cur = min_elephant_path[i + 1]
+            link = (pre, cur)
+            # if (ip_src, ip_dst) not in self.elephant_info:
+            if link in self.link_elephant_flow:
+                self.link_elephant_flow[link] = self.link_elephant_flow[link] + 1
+            else:
+                self.link_elephant_flow[link] = 1
+
+        # if (ip_src, ip_dst) not in self.elephant_info:
+        #     self.elephant_info.append((ip_src, ip_dst))
+
+        self.logger.info(self.link_elephant_flow)
+        # self.logger.info(self.elephant_info)
+
+        return min_elephant_path
+
+    def save_freebandwidth(self, dpid, port_no, speed):
+        free_bw = setting.MAX_CAPACITY - speed
+        self.free_bandwidth[dpid].setdefault(port_no, None)
+        self.free_bandwidth[dpid][port_no] = free_bw
 
     def _save_stats(self, _dict, key, value, length):
         if key not in _dict:
@@ -215,6 +216,7 @@ class NetworkMonitor(app_manager.RyuApp):
             speed = self._get_speed(self.flow_stats[dpid][key][-1][1],
                                     pre, period)
             self._save_stats(self.flow_speed[dpid], key, speed, 5)
+        # self.logger.info(self.flow_speed)
 
     @set_ev_cls(ofp_event.EventOFPPortStatsReply, MAIN_DISPATCHER)
     def _port_stats_reply_handler(self, ev):
@@ -255,15 +257,7 @@ class NetworkMonitor(app_manager.RyuApp):
                     times = nowTime - preTime
                     speedTx = round(datas / times, 2)
 
-                    # rxBytes
-                    preRx = tmp[-2][1]
-                    nowRx = tmp[-1][1]
-                    dataRx = (nowRx - preRx) * 8 / (1024 * 1024)
-                    speedRx = round(dataRx / times, 2)
-
-                    self.port_info[key]['speedTx'] = speedTx
-                    self.port_info[key]['speedRx'] = speedRx
-
+                    self.save_freebandwidth(dpid, port_no, speedTx)
 
     @set_ev_cls(ofp_event.EventOFPPortDescStatsReply, MAIN_DISPATCHER)
     def port_desc_stats_reply_handler(self, ev):
