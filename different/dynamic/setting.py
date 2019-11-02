@@ -22,15 +22,12 @@
 
 DISCOVERY_PERIOD = 10   # For discovering topology.
 
-MONITOR_PERIOD = 2   # For monitoring traffic.
+MONITOR_PERIOD = 5   # For monitoring traffic.
 
 TOSHOW = False	   # For showing statistics information in terminal.
 
-enable_Flow_Entry_L4Port = True   # For including L4 port in the installing flow entries or not.
+enable_Flow_Entry_L4Port = False   # For including L4 port in the installing flow entries or not.
 
-MAX_CAPACITY = 10000   # Max capacity of link. (kbit/s)
+MAX_CAPACITY = 100   # Max capacity of link. (Mbit/s)
 
-# Port numbers of bandwidth-sensitive service.
-bw_sensitive_port_list = [5001]
-
-get_topology_delay = 30
+get_topology_delay = 20
