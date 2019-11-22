@@ -1,26 +1,20 @@
 # conding=utf-8
-import logging
-import struct
-import networkx as nx
-from operator import attrgetter
 from ryu import cfg
 from ryu.base import app_manager
 from ryu.controller import ofp_event
 from ryu.controller.handler import MAIN_DISPATCHER, DEAD_DISPATCHER
-from ryu.controller.handler import CONFIG_DISPATCHER
 from ryu.controller.handler import set_ev_cls
 from ryu.ofproto import ofproto_v1_3
 from ryu.lib.packet import packet
 from ryu.lib.packet import ethernet
 from ryu.lib.packet import ipv4
 from ryu.lib.packet import arp
-
-from ryu.topology import event, switches
-from ryu.topology.api import get_switch, get_link
+from ryu.lib.packet import udp
 
 import network_awareness
 import network_monitor
-import network_delay_detector
+
+import random
 
 
 CONF = cfg.CONF
@@ -62,7 +56,6 @@ class ShortestForwarding(app_manager.RyuApp):
         ofproto = datapath.ofproto
         parser = datapath.ofproto_parser
 
-        self.logger.info('hi')
         result = self.awareness.get_host_location(dst_ip)
         if result:  # host record in access table.
             datapath_dst, out_port = result[0], result[1]
@@ -73,7 +66,6 @@ class ShortestForwarding(app_manager.RyuApp):
             datapath.send_msg(out)
             self.logger.debug("Reply ARP to knew host")
         else:
-            self.logger.info('hi')
             self.flood(msg)
 
     def flood(self, msg):
@@ -124,9 +116,15 @@ class ShortestForwarding(app_manager.RyuApp):
         shortest_paths = self.awareness.shortest_paths
         graph = self.awareness.graph
 
-        # self.logger.info(shortest_paths.get(src).get(dst))
+        paths = shortest_paths.get(src).get(dst)
+        path_length = len(paths)
 
-        main_path = self.monitor.get_path_bandwidth_elephant(shortest_paths.get(src).get(dst), ip_src, ip_dst, src, dst)
+        src_number = int(ip_src.split('.')[1]) + int(ip_src.split('.')[3])
+        dst_number = int(ip_dst.split('.')[1]) + int(ip_dst.split('.')[3])
+
+        random_number = (src_number + dst_number) % path_length
+
+        main_path = paths[random_number]
 
         return main_path
 
@@ -154,14 +152,14 @@ class ShortestForwarding(app_manager.RyuApp):
         if  flow_tcp == 'dst':
             match = parser.OFPMatch(
                 in_port=src_port, eth_type=flow_info[0],
-                ipv4_src=flow_info[1], ipv4_dst=flow_info[2], ip_proto=17, udp_dst=5001)
+                ipv4_src=flow_info[1], ipv4_dst=flow_info[2])
 
         else:
             match = parser.OFPMatch(
                 in_port=src_port, eth_type=flow_info[0],
-                ipv4_src=flow_info[1], ipv4_dst=flow_info[2], ip_proto=17, udp_src=5001)
+                ipv4_src=flow_info[1], ipv4_dst=flow_info[2])
 
-            idle_timeout = 32
+            idle_timeout = 30
 
         self.add_flow(datapath, 40, match, actions,
                       idle_timeout=idle_timeout, hard_timeout=0)
@@ -358,6 +356,7 @@ class ShortestForwarding(app_manager.RyuApp):
         pkt = packet.Packet(msg.data)
         arp_pkt = pkt.get_protocol(arp.arp)
         ip_pkt = pkt.get_protocol(ipv4.ipv4)
+        udp_pkt = pkt.get_protocol(udp.udp)
 
         if isinstance(arp_pkt, arp.arp):
             self.logger.debug("ARP processing")
@@ -369,13 +368,11 @@ class ShortestForwarding(app_manager.RyuApp):
                 eth_type = pkt.get_protocols(ethernet.ethernet)[0].ethertype
                 src = ip_pkt.src
                 dst = ip_pkt.dst
-                # self.shortest_forwarding(msg, eth_type, ip_pkt.src, ip_pkt.dst)
-                if (src, dst) not in self.elephant_info:
-                    # self.logger.info(msg.match['in_port'])
-                    self.shortest_forwarding(msg, eth_type, ip_pkt.src, ip_pkt.dst)
-                    self.elephant_info.append((src, dst))
-                    if len(self.elephant_info) > 1:
-                        self.elephant_info.pop(0)
+                if isinstance(udp_pkt, udp.udp):
+                    if (src, dst) not in self.elephant_info:
+                        self.shortest_forwarding(msg, eth_type, ip_pkt.src, ip_pkt.dst)
+                        self.elephant_info.append((src, dst))
+                        if len(self.elephant_info) > 1:
+                            self.elephant_info.pop(0)
                 else:
-                    result = self.get_sw(datapath.id, in_port, src, dst)
-                    src_sw, dst_sw = result[0], result[1]
+                    self.shortest_forwarding(msg, eth_type, ip_pkt.src, ip_pkt.dst)

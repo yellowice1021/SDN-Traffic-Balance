@@ -126,7 +126,7 @@ class ShortestForwarding(app_manager.RyuApp):
 
         # self.logger.info(shortest_paths.get(src).get(dst))
 
-        main_path = self.monitor.get_path_bandwidth_elephant(shortest_paths.get(src).get(dst), ip_src, ip_dst, src, dst)
+        main_path = self.monitor.get_path_bandwidth_elephant(shortest_paths.get(src).get(dst), ip_src, ip_dst)
 
         return main_path
 
@@ -149,22 +149,17 @@ class ShortestForwarding(app_manager.RyuApp):
         actions = []
         actions.append(parser.OFPActionOutput(dst_port))
 
-        idle_timeout = 5
-
         if  flow_tcp == 'dst':
             match = parser.OFPMatch(
                 in_port=src_port, eth_type=flow_info[0],
-                ipv4_src=flow_info[1], ipv4_dst=flow_info[2], ip_proto=17, udp_dst=5001)
-
+                ipv4_src=flow_info[1], ipv4_dst=flow_info[2], ip_proto=6, tcp_dst=5001)
         else:
             match = parser.OFPMatch(
                 in_port=src_port, eth_type=flow_info[0],
-                ipv4_src=flow_info[1], ipv4_dst=flow_info[2], ip_proto=17, udp_src=5001)
-
-            idle_timeout = 32
+                ipv4_src=flow_info[1], ipv4_dst=flow_info[2], ip_proto=6, tcp_src=5001)
 
         self.add_flow(datapath, 40, match, actions,
-                      idle_timeout=idle_timeout, hard_timeout=0)
+                      idle_timeout=5, hard_timeout=0)
 
     def get_port(self, dst_ip, access_table):
         """
@@ -217,16 +212,10 @@ class ShortestForwarding(app_manager.RyuApp):
         inst = [parser.OFPInstructionActions(ofproto.OFPIT_APPLY_ACTIONS,
                                              actions)]
 
-        if idle_timeout == 5:
-            mod = parser.OFPFlowMod(datapath=dp, priority=p,
-                                    idle_timeout=idle_timeout,
-                                    hard_timeout=hard_timeout,
-                                    match=match, instructions=inst, flags=ofproto.OFPFF_SEND_FLOW_REM)
-        else:
-            mod = parser.OFPFlowMod(datapath=dp, priority=p,
-                                    idle_timeout=idle_timeout,
-                                    hard_timeout=hard_timeout,
-                                    match=match, instructions=inst)
+        mod = parser.OFPFlowMod(datapath=dp, priority=p,
+                                idle_timeout=idle_timeout,
+                                hard_timeout=hard_timeout,
+                                match=match, instructions=inst)
         dp.send_msg(mod)
 
     def install_flow(self, datapaths, link_to_port, access_table, path,
@@ -369,13 +358,12 @@ class ShortestForwarding(app_manager.RyuApp):
                 eth_type = pkt.get_protocols(ethernet.ethernet)[0].ethertype
                 src = ip_pkt.src
                 dst = ip_pkt.dst
-                # self.shortest_forwarding(msg, eth_type, ip_pkt.src, ip_pkt.dst)
-                if (src, dst) not in self.elephant_info:
-                    # self.logger.info(msg.match['in_port'])
-                    self.shortest_forwarding(msg, eth_type, ip_pkt.src, ip_pkt.dst)
-                    self.elephant_info.append((src, dst))
-                    if len(self.elephant_info) > 1:
-                        self.elephant_info.pop(0)
-                else:
-                    result = self.get_sw(datapath.id, in_port, src, dst)
-                    src_sw, dst_sw = result[0], result[1]
+                self.shortest_forwarding(msg, eth_type, ip_pkt.src, ip_pkt.dst)
+                # if (src, dst) not in self.elephant_info:
+                #     self.shortest_forwarding(msg, eth_type, ip_pkt.src, ip_pkt.dst)
+                #     self.elephant_info.append((src, dst))
+                #     if len(self.elephant_info) > 1:
+                #         self.elephant_info.pop(0)
+                # else:
+                #     result = self.get_sw(datapath.id, in_port, src, dst)
+                #     src_sw, dst_sw = result[0], result[1]

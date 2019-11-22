@@ -47,6 +47,7 @@ class NetworkMonitor(app_manager.RyuApp):
         self.elephant_path_bandwidth = {}
         self.elephant_path_speed = {}
         self.elephant_path_switch = {}
+        self.elephant_datapath = []
         self.ifChange = False
         self.awareness = lookup_service_brick('awareness')
         self.graph = None
@@ -81,19 +82,22 @@ class NetworkMonitor(app_manager.RyuApp):
             self.stats['port'] = {}
             for dp in self.datapaths.values():
                 self.port_features.setdefault(dp.id, {})
-                self._request_stats(dp)
+                self._request_stats(dp, 'port')
                 # refresh data.
                 self.capabilities = None
                 self.best_paths = None
+            # for dp in self.elephant_datapath:
+            #     self._request_stats(dp, 'flow')
             self.link_elephant_flow = {}
             # self.elephant_info = []
             self.ifChange = False
             hub.sleep(0.5)
-            self.elephant_path_status()
+            # self.elephant_path_status()
+            self.link_status()
             hub.sleep(setting.MONITOR_PERIOD)
             # self.show_stat()
 
-    def _request_stats(self, datapath):
+    def _request_stats(self, datapath, type):
         """
             Sending request msg to datapath
         """
@@ -101,14 +105,16 @@ class NetworkMonitor(app_manager.RyuApp):
         ofproto = datapath.ofproto
         parser = datapath.ofproto_parser
 
-        req = parser.OFPPortDescStatsRequest(datapath, 0)
-        datapath.send_msg(req)
+        # req = parser.OFPPortDescStatsRequest(datapath, 0)
+        # datapath.send_msg(req)
 
-        req = parser.OFPPortStatsRequest(datapath, 0, ofproto.OFPP_ANY)
-        datapath.send_msg(req)
+        if type == 'port':
+            req = parser.OFPPortStatsRequest(datapath, 0, ofproto.OFPP_ANY)
+            datapath.send_msg(req)
 
-        req = parser.OFPFlowStatsRequest(datapath)
-        datapath.send_msg(req)
+        if type == 'flow':
+            req = parser.OFPFlowStatsRequest(datapath)
+            datapath.send_msg(req)
 
     def get_path_bandwidth_elephant(self, paths, ip_src, ip_dst, src, dst):
         """
@@ -145,10 +151,13 @@ class NetworkMonitor(app_manager.RyuApp):
                 # self.logger.info(min_equal_bandwidth)
 
         path_length = len(min_elephant_path)
+        path_sw = min_elephant_path[0]
+        datapath = self.datapaths[path_sw]
         for i in xrange(path_length - 1):
             pre = min_elephant_path[i]
             cur = min_elephant_path[i + 1]
             link = (pre, cur)
+            datapath = self.datapaths[pre]
             # if (ip_src, ip_dst) not in self.elephant_info:
             if link in self.link_elephant_flow:
                 self.link_elephant_flow[link] = self.link_elephant_flow[link] + 1
@@ -161,16 +170,21 @@ class NetworkMonitor(app_manager.RyuApp):
             if link not in self.elephant_path_bandwidth:
                 self.elephant_path_bandwidth[link] = []
             self.elephant_path_info[link].append((ip_src, ip_dst))
+            if datapath not in self.elephant_datapath:
+                self.elephant_datapath.append(datapath)
 
         if (ip_src, ip_dst) not in self.elephant_info:
             self.elephant_info.append((ip_src, ip_dst))
             self.elephant_path_switch[(ip_src, ip_dst)] = min_elephant_path
 
-        # self.logger.info(self.link_elephant_flow)
-        # self.logger.info(self.elephant_path)
-        # self.logger.info(self.elephant_info)
-        # self.logger.info(self.elephant_path_info)
-        # self.logger.info(self.elephant_path_switch)
+        self.elephant_datapath.append(datapath)
+
+        self.logger.info(self.link_elephant_flow)
+        self.logger.info(self.elephant_path)
+        self.logger.info(self.elephant_info)
+        self.logger.info(self.elephant_path_info)
+        self.logger.info(self.elephant_path_switch)
+        self.logger.info(self.elephant_datapath)
 
         return min_elephant_path
 
@@ -337,7 +351,7 @@ class NetworkMonitor(app_manager.RyuApp):
                     min_elephant_path = path
                 # self.logger.info(path)
                 # self.logger.info(min_equal_bandwidth)
-            if max_elephant_bandwidth > speed:
+            if max_elephant_bandwidth - speed > setting.MAX_CAPACITY * 0.1:
                 self.ifChange = True
                 eth_type = self.elephant_path_speed[data][1]
                 in_port = self.elephant_path_speed[data][2]
@@ -395,17 +409,24 @@ class NetworkMonitor(app_manager.RyuApp):
         max_speed = 0
         data_flow = self.elephant_path_info[link][0]
         data_key = (link[0], data_flow[0], data_flow[1])
+        speed_info = {}
         for data in self.elephant_path_info[link]:
             dpid = link[0]
             src = data[0]
             dst = data[1]
             key = (dpid, src, dst)
             speed = self.elephant_path_speed[key][0]
-            if speed > max_speed:
-                max_speed = speed
-                data_flow = (src, dst)
-                data_key = key
-        self.elephant_new_path(data_flow, max_speed, data_key)
+            speed_info[key] = speed
+        speed_info = sorted(speed_info.items(), key=lambda x:x[1], reverse=True)
+        length = len(speed_info)
+        for i in xrange(length - 1):
+            if self.ifChange == True:
+                break
+            data_key = speed_info[i][0]
+            max_speed = speed_info[i][1]
+            data_flow = (data_key[1], data_key[2])
+            self.elephant_new_path(data_flow, max_speed, data_key)
+            self.logger.info(data_flow)
 
     def elephant_path_status(self):
         """
@@ -425,9 +446,17 @@ class NetworkMonitor(app_manager.RyuApp):
                 if len(self.elephant_path_bandwidth[link]) == 3:
                     path_bandwidth = (self.elephant_path_bandwidth[link][0] + self.elephant_path_bandwidth[link][1] + self.elephant_path_bandwidth[link][2]) / 3
                     if path_bandwidth < setting.MAX_CAPACITY * 0.1:
-                        self.logger.info(path_bandwidth)
+                        # self.logger.info(path_bandwidth)
                         self.elephant_path_new(link)
-            self.logger.info(self.elephant_path_bandwidth[link])
+                        self.logger.info(link)
+            # self.logger.info(self.elephant_path_bandwidth[link])
+
+    def link_status(self):
+        """
+            check load of links
+        """
+        for link in self.awareness.link_to_port:
+            self.logger.info(link)
 
     def save_freebandwidth(self, dpid, port_no, speed):
         free_bw = setting.MAX_CAPACITY - speed
@@ -469,6 +498,7 @@ class NetworkMonitor(app_manager.RyuApp):
         self.stats['flow'][dpid] = body
         self.flow_stats.setdefault(dpid, {})
         self.flow_speed.setdefault(dpid, {})
+        self.logger.info(dpid)
         for stat in sorted([flow for flow in body if flow.priority >= 40 and flow.priority <= 100],
                            key=lambda flow: (flow.match.get('in_port'),
                                              flow.match.get('ipv4_dst'))):
@@ -484,6 +514,7 @@ class NetworkMonitor(app_manager.RyuApp):
                 pre = 0
                 period = setting.MONITOR_PERIOD
                 tmp = self.flow_stats[dpid][key]
+                # self.logger.info(tmp)
                 if len(tmp) > 1:
                     pre = tmp[-2][1]
                     now = tmp[-1][1]
@@ -491,12 +522,15 @@ class NetworkMonitor(app_manager.RyuApp):
                     period = self._get_period(tmp[-1][2], tmp[-1][3],
                                               tmp[-2][2], tmp[-2][3])
 
-                    speed = round(data / period, 2)
-                    eth_type = stat.match.get('eth_type')
-                    in_port = stat.match.get('in_port')
-                    priority = stat.priority
-                    self.elephant_path_speed[key] = (speed, eth_type, in_port, priority)
+                    self.logger.info(data)
+                    self.logger.info(period)
+                    # speed = round(data / period, 2)
+                    # eth_type = stat.match.get('eth_type')
+                    # in_port = stat.match.get('in_port')
+                    # priority = stat.priority
+                    # self.elephant_path_speed[key] = (speed, eth_type, in_port, priority)
                     # self.logger.info(self.elephant_path_speed)
+                    # self.logger.info(key)
 
     @set_ev_cls(ofp_event.EventOFPPortStatsReply, MAIN_DISPATCHER)
     def _port_stats_reply_handler(self, ev):
@@ -539,48 +573,48 @@ class NetworkMonitor(app_manager.RyuApp):
 
                     self.save_freebandwidth(dpid, port_no, speedTx)
 
-    @set_ev_cls(ofp_event.EventOFPPortDescStatsReply, MAIN_DISPATCHER)
-    def port_desc_stats_reply_handler(self, ev):
-        """
-            Save port description info.
-        """
-        msg = ev.msg
-        dpid = msg.datapath.id
-        ofproto = msg.datapath.ofproto
-
-        config_dict = {ofproto.OFPPC_PORT_DOWN: "Down",
-                       ofproto.OFPPC_NO_RECV: "No Recv",
-                       ofproto.OFPPC_NO_FWD: "No Farward",
-                       ofproto.OFPPC_NO_PACKET_IN: "No Packet-in"}
-
-        state_dict = {ofproto.OFPPS_LINK_DOWN: "Down",
-                      ofproto.OFPPS_BLOCKED: "Blocked",
-                      ofproto.OFPPS_LIVE: "Live"}
-
-        ports = []
-        for p in ev.msg.body:
-            ports.append('port_no=%d hw_addr=%s name=%s config=0x%08x '
-                         'state=0x%08x curr=0x%08x advertised=0x%08x '
-                         'supported=0x%08x peer=0x%08x curr_speed=%d '
-                         'max_speed=%d' %
-                         (p.port_no, p.hw_addr,
-                          p.name, p.config,
-                          p.state, p.curr, p.advertised,
-                          p.supported, p.peer, p.curr_speed,
-                          p.max_speed))
-
-            if p.config in config_dict:
-                config = config_dict[p.config]
-            else:
-                config = "up"
-
-            if p.state in state_dict:
-                state = state_dict[p.state]
-            else:
-                state = "up"
-
-            port_feature = (config, state, p.curr_speed)
-            self.port_features[dpid][p.port_no] = port_feature
+    # @set_ev_cls(ofp_event.EventOFPPortDescStatsReply, MAIN_DISPATCHER)
+    # def port_desc_stats_reply_handler(self, ev):
+    #     """
+    #         Save port description info.
+    #     """
+    #     msg = ev.msg
+    #     dpid = msg.datapath.id
+    #     ofproto = msg.datapath.ofproto
+    #
+    #     config_dict = {ofproto.OFPPC_PORT_DOWN: "Down",
+    #                    ofproto.OFPPC_NO_RECV: "No Recv",
+    #                    ofproto.OFPPC_NO_FWD: "No Farward",
+    #                    ofproto.OFPPC_NO_PACKET_IN: "No Packet-in"}
+    #
+    #     state_dict = {ofproto.OFPPS_LINK_DOWN: "Down",
+    #                   ofproto.OFPPS_BLOCKED: "Blocked",
+    #                   ofproto.OFPPS_LIVE: "Live"}
+    #
+    #     ports = []
+    #     for p in ev.msg.body:
+    #         ports.append('port_no=%d hw_addr=%s name=%s config=0x%08x '
+    #                      'state=0x%08x curr=0x%08x advertised=0x%08x '
+    #                      'supported=0x%08x peer=0x%08x curr_speed=%d '
+    #                      'max_speed=%d' %
+    #                      (p.port_no, p.hw_addr,
+    #                       p.name, p.config,
+    #                       p.state, p.curr, p.advertised,
+    #                       p.supported, p.peer, p.curr_speed,
+    #                       p.max_speed))
+    #
+    #         if p.config in config_dict:
+    #             config = config_dict[p.config]
+    #         else:
+    #             config = "up"
+    #
+    #         if p.state in state_dict:
+    #             state = state_dict[p.state]
+    #         else:
+    #             state = "up"
+    #
+    #         port_feature = (config, state, p.curr_speed)
+    #         self.port_features[dpid][p.port_no] = port_feature
 
     @set_ev_cls(ofp_event.EventOFPPortStatus, MAIN_DISPATCHER)
     def _port_status_handler(self, ev):
@@ -605,30 +639,16 @@ class NetworkMonitor(app_manager.RyuApp):
 
     @set_ev_cls(ofp_event.EventOFPFlowRemoved, MAIN_DISPATCHER)
     def flow_removed_handler(self, ev):
+
         msg = ev.msg
         dp = msg.datapath
         ofp = dp.ofproto
 
-        if msg.reason == ofp.OFPRR_IDLE_TIMEOUT:
-            reason = 'IDLE TIMEOUT'
-        elif msg.reason == ofp.OFPRR_HARD_TIMEOUT:
-            reason = 'HARD TIMEOUT'
-        elif msg.reason == ofp.OFPRR_DELETE:
-            reason = 'DELETE'
-        elif msg.reason == ofp.OFPRR_GROUP_DELETE:
-            reason = 'GROUP DELETE'
-        else:
-            reason = 'unknown'
+        src = msg.match
+        dst = msg.match
 
-        self.logger.debug('OFPFlowRemoved received: '
-                          'cookie=%d priority=%d reason=%s table_id=%d '
-                          'duration_sec=%d duration_nsec=%d '
-                          'idle_timeout=%d hard_timeout=%d '
-                          'packet_count=%d byte_count=%d match.fields=%s',
-                          msg.cookie, msg.priority, reason, msg.table_id,
-                          msg.duration_sec, msg.duration_nsec,
-                          msg.idle_timeout, msg.hard_timeout,
-                          msg.packet_count, msg.byte_count, msg.match)
+        self.logger.info(src)
+        self.logger.info(dst)
 
     def show_stat(self):
         '''
