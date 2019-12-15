@@ -33,8 +33,19 @@ class NetworkMonitor(app_manager.RyuApp):
         self.flow_stats = {}
         self.elephant_info = {}
         self.elephant_path = {}
-        self.monitor_time = 3
+        self.monitor_time = 5
         self.monitor_number = 0
+        self.flow_number = 0
+        self.port_number = 0
+        self.flow_size = 0
+        self.port_size = 0
+        self.flow_request_number = 0
+        self.flow_request_size = 0
+        self.port_request_number = 0
+        self.port_request_size = 0
+        self.flow_mode_number = 0
+        self.flow_mode_size = 0
+        self.flow_path_number = 0
         self.awareness = lookup_service_brick('awareness')
         self.graph = None
         self.capabilities = None
@@ -71,6 +82,17 @@ class NetworkMonitor(app_manager.RyuApp):
             hub.sleep(0.5)
             self.link_status()
             self.monitor_number = self.monitor_number + 1
+            self.logger.info("port number:" + str(self.port_number))
+            self.logger.info("flow number:" + str(self.flow_number))
+            self.logger.info("port request number:" + str(self.port_request_number))
+            self.logger.info("flow request number:" + str(self.flow_request_number))
+            self.logger.info("flow mode number:" + str(self.flow_mode_number))
+            self.logger.info("port size:" + str(self.port_size))
+            self.logger.info("flow size:" + str(self.flow_size))
+            self.logger.info("port request size:" + str(self.port_request_size))
+            self.logger.info("flow request size:" + str(self.flow_request_size))
+            self.logger.info("flow mode size:" + str(self.flow_mode_size))
+            self.logger.info("flow path number:" + str(self.flow_path_number))
             hub.sleep(self.monitor_time)
             # self.show_stat()
 
@@ -88,8 +110,15 @@ class NetworkMonitor(app_manager.RyuApp):
         req = parser.OFPPortStatsRequest(datapath, 0, ofproto.OFPP_ANY)
         datapath.send_msg(req)
 
-        req = parser.OFPFlowStatsRequest(datapath)
-        datapath.send_msg(req)
+        self.port_request_number = self.port_request_number + 1
+        self.port_request_size = self.port_request_size + len(str(req))
+
+        if str(datapath.id).startswith('2'):
+            req = parser.OFPFlowStatsRequest(datapath)
+            datapath.send_msg(req)
+
+            self.flow_request_number = self.flow_request_number + 1
+            self.flow_request_size = self.flow_request_size + len(str(req))
 
     def get_port(self, dst_ip, access_table):
         """
@@ -119,6 +148,9 @@ class NetworkMonitor(app_manager.RyuApp):
                                 hard_timeout=hard_timeout,
                                 match=match, instructions=inst)
         dp.send_msg(mod)
+
+        self.flow_mode_number = self.flow_mode_number + 1
+        self.flow_mode_size = self.flow_mode_size + len(str(dp))
 
     def send_flow_mod(self, datapath, flow_info, src_port, dst_port, flow_tcp, priority):
         """
@@ -389,6 +421,7 @@ class NetworkMonitor(app_manager.RyuApp):
                 self.find_new_path(src_ip, dst_ip, link_flow)
                 bandwidth = self.port_info[(src, src_port)]
                 i = i + 1
+                # self.flow_path_number = self.flow_path_number + 1
                 # self.logger.info(bandwidth)
 
     def link_status(self):
@@ -404,7 +437,9 @@ class NetworkMonitor(app_manager.RyuApp):
             (src_port, dst_port) = self.awareness.link_to_port[link]
             bandwidth = self.port_info[(src, src_port)]
             if bandwidth < setting.MAX_CAPACITY * 0.1:
+                self.logger.info(link)
                 self.change_flow_path(link, src, src_port)
+                self.flow_path_number = self.flow_path_number + 1
             bandwidth_all = (setting.MAX_CAPACITY - self.port_info[(src, src_port)]) / setting.MAX_CAPACITY
             bandwidth_all = round(bandwidth_all, 2)
             if bandwidth_all > bandwidth_all_max:
@@ -412,15 +447,17 @@ class NetworkMonitor(app_manager.RyuApp):
             link_number = link_number + 1
             bandwidth_number = bandwidth_number + bandwidth_all
         if link_number != 0:
-            monitor_time = 0.7 * bandwidth_all_max + 0.3 * round((bandwidth_number / link_number), 2)
+            monitor_time = 0.6 * bandwidth_all_max + 0.4 * round((bandwidth_number / link_number), 2)
             if monitor_time != 0:
                 monitor_time = round((3 / monitor_time), 2)
                 self.monitor_time = int(monitor_time)
                 if self.monitor_time > 20:
                     self.monitor_time = 20
-                if self.monitor_number < 10:
-                    self.monitor_time = 3
-                self.logger.info(self.monitor_time)
+                # if self.monitor_number < 7:
+                #     self.monitor_time = 5
+            else:
+                self.monitor_time = 20
+            self.logger.info(self.monitor_time)
 
     def _save_stats(self, _dict, key, value, length):
         if key not in _dict:
@@ -455,48 +492,53 @@ class NetworkMonitor(app_manager.RyuApp):
         body = ev.msg.body
         dpid = ev.msg.datapath.id
         self.flow_stats.setdefault(dpid, {})
-        for stat in sorted([flow for flow in body if ((flow.priority not in [0, 65535]) and (flow.match.get('ipv4_src')) and (flow.match.get('ipv4_dst')))],
-                           key=lambda flow: (flow.match.get('in_port'),
-                                             flow.match.get('ipv4_dst'))):
-            src = str(stat.match.get('ipv4_src'))
-            dst = str(stat.match.get('ipv4_dst'))
-            if str(dpid).startswith('2'):
-                in_port = stat.match.get('in_port')
-                out_port = stat.instructions[0].actions[0].port
-                priority = stat.priority
-                key = (dpid, src, dst, priority)
-                value = (stat.byte_count, time.time())
-                self._save_stats(self.flow_stats[dpid], key, value, 2)
 
-                pre = 0
-                period = self.monitor_time + 0.5
-                tmp = self.flow_stats[dpid][key]
-                now = tmp[-1][0]
-                if len(tmp) > 1:
-                    pre = tmp[-2][0]
-                    period = tmp[-1][1] - tmp[-2][1]
+        if str(dpid).startswith('2'):
+            self.flow_number = self.flow_number + 1
+            self.flow_size = self.flow_size + len(str(ev.msg))
 
-                data = (now - pre) * 8 / (1024 * 1024)
-                speed = round(data / period, 2)
+            for stat in sorted([flow for flow in body if ((flow.priority not in [0, 65535]) and (flow.match.get('ipv4_src')) and (flow.match.get('ipv4_dst')))],
+                               key=lambda flow: (flow.match.get('in_port'),
+                                                 flow.match.get('ipv4_dst'))):
+                src = str(stat.match.get('ipv4_src'))
+                dst = str(stat.match.get('ipv4_dst'))
+                if str(dpid).startswith('2'):
+                    in_port = stat.match.get('in_port')
+                    out_port = stat.instructions[0].actions[0].port
+                    priority = stat.priority
+                    key = (dpid, src, dst, priority)
+                    value = (stat.byte_count, time.time())
+                    self._save_stats(self.flow_stats[dpid], key, value, 2)
 
-                # self.logger.info(period)
+                    pre = 0
+                    period = self.monitor_time + 0.5
+                    tmp = self.flow_stats[dpid][key]
+                    now = tmp[-1][0]
+                    if len(tmp) > 1:
+                        pre = tmp[-2][0]
+                        period = tmp[-1][1] - tmp[-2][1]
 
-                # self.logger.info(speed)
+                    data = (now - pre) * 8 / (1024 * 1024)
+                    speed = round(data / period, 2)
 
-                if speed > 0:
-                    if speed > setting.MAX_CAPACITY * 0.1:
-                        src_dpid = self.awareness.link_in_to[(dpid, in_port)]
-                        dst_dpid = self.awareness.link_in_to[(dpid, out_port)]
-                        eth_type = stat.match.get('eth_type')
-                        priority = stat.priority
-                        if (src_dpid, dpid) not in self.elephant_info:
-                            self.elephant_info[(src_dpid, dpid)] = {}
-                        if (dpid, dst_dpid) not in self.elephant_info:
-                            self.elephant_info[(dpid, dst_dpid)] = {}
-                        self.elephant_info[(src_dpid, dpid)][(src, dst)] = (speed, eth_type, priority)
-                        self.elephant_info[(dpid, dst_dpid)][(src, dst)] = (speed, eth_type, priority)
-                        # self.logger.info(self.elephant_info)
-                        # self.elephant_info[key] = speed
+                    # self.logger.info(period)
+
+                    # self.logger.info(speed)
+
+                    if speed > 0:
+                        if speed > setting.MAX_CAPACITY * 0.1:
+                            src_dpid = self.awareness.link_in_to[(dpid, in_port)]
+                            dst_dpid = self.awareness.link_in_to[(dpid, out_port)]
+                            eth_type = stat.match.get('eth_type')
+                            priority = stat.priority
+                            if (src_dpid, dpid) not in self.elephant_info:
+                                self.elephant_info[(src_dpid, dpid)] = {}
+                            if (dpid, dst_dpid) not in self.elephant_info:
+                                self.elephant_info[(dpid, dst_dpid)] = {}
+                            self.elephant_info[(src_dpid, dpid)][(src, dst)] = (speed, eth_type, priority)
+                            self.elephant_info[(dpid, dst_dpid)][(src, dst)] = (speed, eth_type, priority)
+                            # self.logger.info(self.elephant_info)
+                            # self.elephant_info[key] = speed
 
     @set_ev_cls(ofp_event.EventOFPPortStatsReply, MAIN_DISPATCHER)
     def _port_stats_reply_handler(self, ev):
@@ -506,6 +548,9 @@ class NetworkMonitor(app_manager.RyuApp):
         """
         body = ev.msg.body
         dpid = ev.msg.datapath.id
+
+        self.port_number = self.port_number + 1
+        self.port_size = self.port_size + len(str(ev.msg))
 
         for stat in sorted(body, key=attrgetter('port_no')):
             port_no = stat.port_no

@@ -44,7 +44,7 @@ def read_throughout_file(file):
 	lines = read_file.xreadlines()
 	lines_list = []
 	for line in lines:
-		if line.endswith('sec\n'):
+		if line.endswith('/sec\n'):
 			lines_list.append(line)
 	read_file.close()
 	return lines_list
@@ -58,6 +58,8 @@ def get_throughout(throughout_path):
 		get throughout
 	"""
 	throughout_number = 0
+	bandwidth_number = 0
+	bandwidth_number_all = 0
 
 	for root, dir, file_list in os.walk(throughout_path):
 		for file in file_list:
@@ -72,7 +74,14 @@ def get_throughout(throughout_path):
 						last_time = float(end_time) - float(start_time)
 						if last_time > 10:
 							throughout = line[20: 26].strip()
+							bandwidth = line[34: 38].strip()
 							throughout_number = throughout_number + float(throughout)
+							if float(bandwidth) > 0:
+								bandwidth_number_all = bandwidth_number_all + 1
+								bandwidth_number = bandwidth_number + float(bandwidth)
+
+		bandwidth = round(bandwidth_number / bandwidth_number_all, 2)
+		print(bandwidth)
 
 	return throughout_number
 
@@ -102,31 +111,93 @@ def get_result():
 	"""
 		get result of throughout, delay, packet_loss
 	"""
-	for i in xrange(1):
-		file_bandwidth = '../result/hotspot/maxwidth/'
-		file_bandwidth = file_bandwidth + str(i + 1)
-		delay_packet_file = file_bandwidth + '/successive_packets.txt'
-		delay_packet = {}
-		delay_packet = get_delay_packet(delay_packet, delay_packet_file)
+	for i in xrange(6):
+		file_bandwidth = '../result/ecmp/stride4/' + str(i + 1) + '/'
+		file_bandwidth = file_bandwidth
+		# delay_packet_file = file_bandwidth + '/successive_packets.txt'
+		# delay_packet = {}
+		# delay_packet = get_delay_packet(delay_packet, delay_packet_file)
 		throughout = get_throughout(file_bandwidth)
 
-		print('maxwidth average_delay:' + str(delay_packet['average_delay']))
+		# print('ecmp average_delay:' + str(delay_packet['average_delay']))
 		# print('mean_delay:' + str(delay_packet['mean_delay']))
-		print('maxwidth packet_loss:' + str(delay_packet['packet_loss']))
-		print('maxwidth throught:' + str(throughout))
+		# print('ecmp packet_loss:' + str(delay_packet['packet_loss']))
+		print('ecmp throught:' + str(throughout))
 
-		file_number = '../result/hotspot/differenttype/'
-		file_number = file_number + str(i + 1)
-		delay_packet_file = file_number + '/successive_packets.txt'
-		delay_packet = {}
-		delay_packet = get_delay_packet(delay_packet, delay_packet_file)
-		throughout = get_throughout(file_number)
+		# file_number = '../result/hedera/stride4/'
+		# file_number = file_number + str(i + 1) + '/'
+		# # delay_packet_file = file_number + '/successive_packets.txt'
+		# # delay_packet = {}
+		# # delay_packet = get_delay_packet(delay_packet, delay_packet_file)
+		# throughout = get_throughout(file_number)
+		#
+		# # print('maxwidth average_delay:' + str(delay_packet['average_delay']))
+		# # # print('mean_delay:' + str(delay_packet['mean_delay']))
+		# # print('maxwidth packet_loss:' + str(delay_packet['packet_loss']))
+		# print('hedera throught:' + str(throughout))
+		#
+		# file_differenttype = '../result/Ashman/stride4/'
+		# file_differenttype = file_differenttype + str(i + 1) + '/'
+		# # delay_packet_file = file_differenttype + '/successive_packets.txt'
+		# # delay_packet = {}
+		# # delay_packet = get_delay_packet(delay_packet, delay_packet_file)
+		# throughout = get_throughout(file_differenttype)
+		#
+		# # print('differenttype average_delay:' + str(delay_packet['average_delay']))
+		# # # print('mean_delay:' + str(delay_packet['mean_delay']))
+		# # print('differenttype packet_loss:' + str(delay_packet['packet_loss']))
+		# print('Ashman throught:' + str(throughout))
+		#
+		# file_flows = '../result/DSFlows/stride4/'
+		# file_flows = file_flows + str(i + 1) + '/'
+		# # delay_packet_file = file_differenttype + '/successive_packets.txt'
+		# # delay_packet = {}
+		# # delay_packet = get_delay_packet(delay_packet, delay_packet_file)
+		# throughout = get_throughout(file_flows)
+		#
+		# # print('differenttype average_delay:' + str(delay_packet['average_delay']))
+		# # # print('mean_delay:' + str(delay_packet['mean_delay']))
+		# # print('differenttype packet_loss:' + str(delay_packet['packet_loss']))
+		# print('DSFlows throught:' + str(throughout))
+		# print('\n')
 
-		print('differenttype average_delay:' + str(delay_packet['average_delay']))
-		# print('mean_delay:' + str(delay_packet['mean_delay']))
-		print('differenttype packet_loss:' + str(delay_packet['packet_loss']))
-		print('differenttype throught:' + str(throughout))
-		print('\n')
+	# for i in xrange(1):
+		# file_bandwidth = '../result/hotspot/ecmp/'
+		# file_bandwidth = file_bandwidth + str(i + 1)
+		# delay_packet_file = file_bandwidth + '/successive_packets.txt'
+		# delay_packet = {}
+		# delay_packet = get_delay_packet(delay_packet, delay_packet_file)
+		# throughout = get_throughout(file_bandwidth)
+		#
+		# print('ecmp average_delay:' + str(delay_packet['average_delay']))
+		# # print('mean_delay:' + str(delay_packet['mean_delay']))
+		# print('ecmp packet_loss:' + str(delay_packet['packet_loss']))
+		# print('ecmp throught:' + str(throughout))
+
+		# file_number = '../result/times/maxwidth/8/hotspot/'
+		# # file_number = file_number + str(i + 1)
+		# delay_packet_file = file_number + '/successive_packets.txt'
+		# delay_packet = {}
+		# delay_packet = get_delay_packet(delay_packet, delay_packet_file)
+		# throughout = get_throughout(file_number)
+		#
+		# print('maxwidth average_delay:' + str(delay_packet['average_delay']))
+		# # print('mean_delay:' + str(delay_packet['mean_delay']))
+		# print('maxwidth packet_loss:' + str(delay_packet['packet_loss']))
+		# print('maxwidth throught:' + str(throughout))
+
+		# file_differenttype = '../result/times/differenttype/2/hotspot/'
+		# # file_differenttype = file_differenttype + str(i + 1)
+		# delay_packet_file = file_differenttype + '/successive_packets.txt'
+		# delay_packet = {}
+		# delay_packet = get_delay_packet(delay_packet, delay_packet_file)
+		# throughout = get_throughout(file_differenttype)
+		#
+		# print('differenttype average_delay:' + str(delay_packet['average_delay']))
+		# # print('mean_delay:' + str(delay_packet['mean_delay']))
+		# print('differenttype packet_loss:' + str(delay_packet['packet_loss']))
+		# print('differenttype throught:' + str(throughout))
+		# print('\n')
 
 if __name__ == '__main__':
 	get_result()

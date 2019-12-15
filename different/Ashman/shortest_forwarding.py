@@ -227,6 +227,9 @@ class ShortestForwarding(app_manager.RyuApp):
                                     match=match, instructions=inst)
         dp.send_msg(mod)
 
+        self.monitor.flow_mode_number = self.monitor.flow_mode_number + 1
+        self.monitor.flow_mode_size = self.monitor.flow_mode_size + len(str(dp))
+
     def install_flow(self, datapaths, link_to_port, access_table, path,
                      flow_info, buffer_id, data=None):
         '''

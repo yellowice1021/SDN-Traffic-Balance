@@ -12,6 +12,7 @@ from ryu.lib import hub
 import setting
 import time
 import random
+from DemandEstimation import demand_estimation
 
 
 CONF = cfg.CONF
@@ -34,6 +35,19 @@ class NetworkMonitor(app_manager.RyuApp):
         self.elephant_info = {}
         self.monitor_time = 5
         self.monitor_number = 0
+        self.flow_number = 0
+        self.port_number = 0
+        self.flow_size = 0
+        self.port_size = 0
+        self.flow_request_number = 0
+        self.flow_request_size = 0
+        self.port_request_number = 0
+        self.port_request_size = 0
+        self.flow_mode_number = 0
+        self.flow_mode_size = 0
+        self.flow_path_number = 0
+        self.hostsList = []
+        self.flows = []  # Record flows that need to be rescheduled. (hmc)
         self.awareness = lookup_service_brick('awareness')
         self.graph = None
         self.capabilities = None
@@ -70,6 +84,17 @@ class NetworkMonitor(app_manager.RyuApp):
             hub.sleep(0.5)
             self.link_status()
             self.monitor_number = self.monitor_number + 1
+            self.logger.info("port number:" + str(self.port_number))
+            self.logger.info("flow number:" + str(self.flow_number))
+            self.logger.info("port request number:" + str(self.port_request_number))
+            self.logger.info("flow request number:" + str(self.flow_request_number))
+            self.logger.info("flow mode number:" + str(self.flow_mode_number))
+            self.logger.info("port size:" + str(self.port_size))
+            self.logger.info("flow size:" + str(self.flow_size))
+            self.logger.info("port request size:" + str(self.port_request_size))
+            self.logger.info("flow request size:" + str(self.flow_request_size))
+            self.logger.info("flow mode size:" + str(self.flow_mode_size))
+            self.logger.info("flow path number:" + str(self.flow_path_number))
             hub.sleep(self.monitor_time)
             # self.show_stat()
 
@@ -87,8 +112,15 @@ class NetworkMonitor(app_manager.RyuApp):
         req = parser.OFPPortStatsRequest(datapath, 0, ofproto.OFPP_ANY)
         datapath.send_msg(req)
 
-        req = parser.OFPFlowStatsRequest(datapath)
-        datapath.send_msg(req)
+        self.port_request_number = self.port_request_number + 1
+        self.port_request_size = self.port_request_size + len(str(req))
+
+        if str(datapath.id).startswith('3'):
+            req = parser.OFPFlowStatsRequest(datapath)
+            datapath.send_msg(req)
+
+            self.flow_request_number = self.flow_request_number + 1
+            self.flow_request_size = self.flow_request_size + len(str(req))
 
     def get_port(self, dst_ip, access_table):
         """
@@ -118,6 +150,9 @@ class NetworkMonitor(app_manager.RyuApp):
                                 hard_timeout=hard_timeout,
                                 match=match, instructions=inst)
         dp.send_msg(mod)
+
+        self.flow_mode_number = self.flow_mode_number + 1
+        self.flow_mode_size = self.flow_mode_size + len(str(dp))
 
     def send_flow_mod(self, datapath, flow_info, src_port, dst_port, flow_tcp, priority):
         """
@@ -350,13 +385,34 @@ class NetworkMonitor(app_manager.RyuApp):
         """
             check load of links
         """
+        self.hostsList = []
+        self.flows = []
         for key in self.elephant_info:
             speed = self.elephant_info[key][0]
             if speed > setting.MAX_CAPACITY * 0.1:
                 src_ip = key[0]
                 dst_ip = key[1]
                 flow = self.elephant_info[key]
-                self.find_new_path(src_ip, dst_ip, flow)
+                stat = flow[3]
+                priority = flow[2]
+                self.flows.append({'src': src_ip, 'dst': dst_ip, 'demand': speed,
+                                   'converged': False, 'receiver_limited': False,
+                                   'match': stat, 'priority': priority})
+                if src_ip not in self.hostsList:
+                    self.hostsList.append(src_ip)
+                if dst_ip not in self.hostsList:
+                    self.hostsList.append(dst_ip)
+        flows = sorted([flow for flow in self.flows], key=lambda flow: (flow['src'], flow['dst']))
+        hostsList = sorted(self.hostsList)
+        estimated_flows = demand_estimation(flows, hostsList)
+        for flow in estimated_flows:
+            if flow['demand'] > 0.1:
+                src_ip = flow['src']
+                dst_ip = flow['dst']
+                flow_info = (round(setting.MAX_CAPACITY * flow['demand'], 2), flow['match']['eth_type'], flow['priority'])
+                self.find_new_path(src_ip, dst_ip, flow_info)
+                self.flow_path_number = self.flow_path_number + 1
+                # self.logger.info(speed)
 
     def _save_stats(self, _dict, key, value, length):
         if key not in _dict:
@@ -391,42 +447,44 @@ class NetworkMonitor(app_manager.RyuApp):
         body = ev.msg.body
         dpid = ev.msg.datapath.id
         self.flow_stats.setdefault(dpid, {})
-        for stat in sorted([flow for flow in body if ((flow.priority not in [0, 65535]) and (flow.match.get('ipv4_src')) and (flow.match.get('ipv4_dst')))],
-                           key=lambda flow: (flow.match.get('in_port'),
-                                             flow.match.get('ipv4_dst'))):
-            src = str(stat.match.get('ipv4_src'))
-            dst = str(stat.match.get('ipv4_dst'))
-            if str(dpid).startswith('3'):
-                in_port = stat.match.get('in_port')
-                out_port = stat.instructions[0].actions[0].port
-                priority = stat.priority
-                key = (dpid, src, dst, priority)
-                value = (stat.byte_count, time.time())
-                self._save_stats(self.flow_stats[dpid], key, value, 2)
+        if str(dpid).startswith('3'):
+            self.flow_number = self.flow_number + 1
+            self.flow_size = self.flow_size + len(str(ev.msg))
+            for stat in sorted([flow for flow in body if ((flow.priority not in [0, 65535]) and (flow.match.get('ipv4_src')) and (flow.match.get('ipv4_dst')))],
+                               key=lambda flow: (flow.match.get('in_port'),
+                                                 flow.match.get('ipv4_dst'))):
+                src = str(stat.match.get('ipv4_src'))
+                dst = str(stat.match.get('ipv4_dst'))
+                if str(dpid).startswith('3'):
+                    in_port = stat.match.get('in_port')
+                    out_port = stat.instructions[0].actions[0].port
+                    priority = stat.priority
+                    key = (dpid, src, dst, priority)
+                    value = (stat.byte_count, time.time())
+                    self._save_stats(self.flow_stats[dpid], key, value, 2)
 
-                pre = 0
-                period = self.monitor_time + 0.5
-                tmp = self.flow_stats[dpid][key]
-                now = tmp[-1][0]
-                if len(tmp) > 1:
-                    pre = tmp[-2][0]
-                    period = tmp[-1][1] - tmp[-2][1]
+                    pre = 0
+                    period = self.monitor_time + 0.5
+                    tmp = self.flow_stats[dpid][key]
+                    now = tmp[-1][0]
+                    if len(tmp) > 1:
+                        pre = tmp[-2][0]
+                        period = tmp[-1][1] - tmp[-2][1]
 
-                data = (now - pre) * 8 / (1024 * 1024)
-                speed = round(data / period, 2)
+                    data = (now - pre) * 8 / (1024 * 1024)
+                    speed = round(data / period, 2)
 
-                # self.logger.info(period)
+                    # self.logger.info(period)
 
-                # self.logger.info(speed)
+                    # self.logger.info(speed)
 
-                if speed > 0:
-                    if speed > setting.MAX_CAPACITY * 0.1:
-                        eth_type = stat.match.get('eth_type')
-                        priority = stat.priority
-                        self.elephant_info[(src, dst)] = (speed, eth_type, priority)
-                        self.elephant_info[(src, dst)] = (speed, eth_type, priority)
-                        # self.logger.info(self.elephant_info)
-                        # self.elephant_info[key] = speed
+                    if speed > 0:
+                        if speed > setting.MAX_CAPACITY * 0.1:
+                            eth_type = stat.match.get('eth_type')
+                            priority = stat.priority
+                            self.elephant_info[(src, dst)] = (speed, eth_type, priority, stat.match)
+                            # self.logger.info(self.elephant_info)
+                            # self.elephant_info[key] = speed
 
     @set_ev_cls(ofp_event.EventOFPPortStatsReply, MAIN_DISPATCHER)
     def _port_stats_reply_handler(self, ev):
@@ -436,6 +494,9 @@ class NetworkMonitor(app_manager.RyuApp):
         """
         body = ev.msg.body
         dpid = ev.msg.datapath.id
+
+        self.port_number = self.port_number + 1
+        self.port_size = self.port_size + len(str(ev.msg))
 
         for stat in sorted(body, key=attrgetter('port_no')):
             port_no = stat.port_no

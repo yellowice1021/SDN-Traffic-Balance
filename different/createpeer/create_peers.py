@@ -93,6 +93,7 @@ def create_stag_peers(HostList, edge_prob, pod_prob, flows_num_per_host):
 		Create staggered iperf peers to generate traffic.
 	"""
 	peers = []
+	peers_first = []
 	for host in HostList:
 		num = int(host[1:])
 		swList = create_swList(num)
@@ -113,6 +114,57 @@ def create_stag_peers(HostList, edge_prob, pod_prob, flows_num_per_host):
 				if (peer not in podList) and ((host, peer) not in new_peers):
 					new_peers.append((host, peer))
 		peers.extend(new_peers)
+	random.shuffle(peers)
+	for host in HostList:
+		num = int(host[1:])
+		swList = create_swList(num)
+		podList = create_podList(num)
+		new_peers = []
+		while len(new_peers) < flows_num_per_host:
+			probability = random.random()
+			if probability < edge_prob:
+				peer = random.choice(swList)
+				if (peer != host) and ((host, peer) not in new_peers):
+					new_peers.append((host, peer))
+			elif edge_prob <= probability < edge_prob + pod_prob:
+				peer = random.choice(podList)
+				if (peer not in swList) and ((host, peer) not in new_peers):
+					new_peers.append((host, peer))
+			else:
+				peer = random.choice(HostList)
+				if (peer not in podList) and ((host, peer) not in new_peers):
+					new_peers.append((host, peer))
+		peers_first.extend(new_peers)
+	random.shuffle(peers_first)
+	for host in peers_first:
+		peers.append(host)
+	return peers
+
+def create_stride_peers(HostList, flow_num, stride_num):
+	"""
+		Create stride iperf peers to generate traffic
+	"""
+	peers = []
+	peers_first = []
+	for host in HostList:
+		for i in xrange(flow_num):
+			peers_number = (HostList.index(host) + stride_num) % 16
+			peer = HostList[peers_number]
+			peers.append((host, peer))
+
+	random.shuffle(peers)
+
+	for host in HostList:
+		for i in xrange(flow_num):
+			peers_number = (HostList.index(host) + stride_num) % 16
+			peer = HostList[peers_number]
+			peers_first.append((host, peer))
+
+	random.shuffle(peers_first)
+
+	for host in peers_first:
+		peers.append(host)
+
 	return peers
 
 def create_random_peers(HostList, flow_num):
@@ -120,12 +172,28 @@ def create_random_peers(HostList, flow_num):
 		Create random iperf peers to generate traffic.
 	"""
 	peers = []
+	peers_first = []
 	for host in HostList:
 		for i in xrange(flow_num):
 			peer = random.choice(HostList)
-			while (peer == host):
+			while (peer == host) or (host, peer) in peers:
 				peer = random.choice(HostList)
 			peers.append((host, peer))
+
+	random.shuffle(peers)
+
+	for host in HostList:
+		for i in xrange(flow_num):
+			peer = random.choice(HostList)
+			while (peer == host) or (host, peer) in peers_first:
+				peer = random.choice(HostList)
+			peers_first.append((host, peer))
+
+	random.shuffle(peers_first)
+
+	for host in peers_first:
+		peers.append(host)
+
 	return peers
 
 def create_hotspot_peers(HostList, flows_num_per_host, number):
@@ -134,6 +202,8 @@ def create_hotspot_peers(HostList, flows_num_per_host, number):
 	"""
 	peers = []
 	hotspot_host = []
+	peers_first = []
+	hotspot_host_first = []
 
 	for i in xrange(number):
 		hotspot = random.choice(HostList)
@@ -147,6 +217,27 @@ def create_hotspot_peers(HostList, flows_num_per_host, number):
 			while(peer == host):
 				peer = random.choice(hotspot_host)
 			peers.append((host, peer))
+
+	random.shuffle(peers)
+
+	for i in xrange(number):
+		hotspot = random.choice(HostList)
+		while(hotspot in hotspot_host_first):
+			hotspot = random.choice(HostList)
+		hotspot_host_first.append(hotspot)
+
+	for host in HostList:
+		for i in xrange(flows_num_per_host):
+			peer = random.choice(hotspot_host)
+			while(peer == host):
+				peer = random.choice(hotspot_host)
+			peers_first.append((host, peer))
+
+	random.shuffle(peers_first)
+
+	for host in peers_first:
+		peers.append(host)
+
 	return peers
 
 def create_hostlist(num):
@@ -171,19 +262,54 @@ def create_peers(host_num, flow_num):
 	HostList = create_hostlist(host_num)
 
 	# peers = create_random_peers(HostList, flow_num)
-	# random.shuffle(peers)
+	# # random.shuffle(peers)
 	# file_save = open('peers.py', 'w')
 	# file_save.write('peers=%s' % peers)
 	# file_save.close()
 
-	hotspot_number = host_num / 2
-	peers = create_hotspot_peers(HostList, flow_num, hotspot_number)
-	random.shuffle(peers)
-	file_save = open('hotspot.py', 'w')
+	# hotspot_number = host_num / 4
+	# peers = create_hotspot_peers(HostList, flow_num, hotspot_number)
+	# # random.shuffle(peers)
+	# file_save = open('hotspot.py', 'w')
+	# file_save.write('peers=%s' % peers)
+	# file_save.close()
+
+	# peers = create_stride_peers(HostList, flow_num, 1)
+	# file_save = open('stride1.py', 'w')
+	# file_save.write('peers=%s' % peers)
+	# file_save.close()
+
+	# peers = create_stride_peers(HostList, flow_num, 2)
+	# file_save = open('stride2.py', 'w')
+	# file_save.write('peers=%s' % peers)
+	# file_save.close()
+
+	# peers = create_stride_peers(HostList, flow_num, 4)
+	# file_save = open('stride4.py', 'w')
+	# file_save.write('peers=%s' % peers)
+	# file_save.close()
+
+	# peers = create_stride_peers(HostList, flow_num, 4)
+	# file_save = open('stride8.py', 'w')
+	# file_save.write('peers=%s' % peers)
+	# file_save.close()
+
+	# peers = create_stag_peers(HostList, 0.2, 0.3, flow_num)
+	# file_save = open('stag2.py', 'w')
+	# file_save.write('peers=%s' % peers)
+	# file_save.close()
+
+	# peers = create_stag_peers(HostList, 0.5, 0.3, flow_num)
+	# file_save = open('stag5.py', 'w')
+	# file_save.write('peers=%s' % peers)
+	# file_save.close()
+
+	peers = create_stag_peers(HostList, 0.7, 0.2, flow_num)
+	file_save = open('stag7.py', 'w')
 	file_save.write('peers=%s' % peers)
 	file_save.close()
 
 if __name__ == '__main__':
 	host_num = 16
-	flow_num = 20
+	flow_num = 1
 	create_peers(host_num, flow_num)

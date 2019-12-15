@@ -12,7 +12,6 @@ from ryu.lib import hub
 import setting
 import time
 import random
-from DemandEstimation import demand_estimation
 
 
 CONF = cfg.CONF
@@ -33,6 +32,7 @@ class NetworkMonitor(app_manager.RyuApp):
         self.port_info = {}
         self.flow_stats = {}
         self.elephant_info = {}
+        self.elephant_path = {}
         self.monitor_time = 5
         self.monitor_number = 0
         self.flow_number = 0
@@ -46,12 +46,6 @@ class NetworkMonitor(app_manager.RyuApp):
         self.flow_mode_number = 0
         self.flow_mode_size = 0
         self.flow_path_number = 0
-        self.flow_number_all = 0
-        self.flow_size_all = 0
-        self.flow_request_number_all = 0
-        self.flow_request_size_all = 0
-        self.hostsList = []
-        self.flows = []  # Record flows that need to be rescheduled. (hmc)
         self.awareness = lookup_service_brick('awareness')
         self.graph = None
         self.capabilities = None
@@ -86,23 +80,19 @@ class NetworkMonitor(app_manager.RyuApp):
                 self.best_paths = None
             self.ifChange = False
             hub.sleep(0.5)
-            self.link_status()
-            self.monitor_number = self.monitor_number + 1
-            self.logger.info("port number:" + str(self.port_number))
-            self.logger.info("flow number:" + str(self.flow_number))
-            self.logger.info("port request number:" + str(self.port_request_number))
-            self.logger.info("flow request number:" + str(self.flow_request_number))
-            self.logger.info("flow mode number:" + str(self.flow_mode_number))
-            self.logger.info("port size:" + str(self.port_size))
-            self.logger.info("flow size:" + str(self.flow_size))
-            self.logger.info("port request size:" + str(self.port_request_size))
-            self.logger.info("flow request size:" + str(self.flow_request_size))
-            self.logger.info("flow mode size:" + str(self.flow_mode_size))
-            self.logger.info("flow path number:" + str(self.flow_path_number))
-            self.logger.info("flow number all:" + str(self.flow_number_all))
-            self.logger.info("flow request number all:" + str(self.flow_request_number_all))
-            self.logger.info("flow size all:" + str(self.flow_size_all))
-            self.logger.info("flow request size all:" + str(self.flow_request_size_all))
+            # self.link_status()
+            # self.monitor_number = self.monitor_number + 1
+            # self.logger.info("port number:" + str(self.port_number))
+            # self.logger.info("flow number:" + str(self.flow_number))
+            # self.logger.info("port request number:" + str(self.port_request_number))
+            # self.logger.info("flow request number:" + str(self.flow_request_number))
+            # self.logger.info("flow mode number:" + str(self.flow_mode_number))
+            # self.logger.info("port size:" + str(self.port_size))
+            # self.logger.info("flow size:" + str(self.flow_size))
+            # self.logger.info("port request size:" + str(self.port_request_size))
+            # self.logger.info("flow request size:" + str(self.flow_request_size))
+            # self.logger.info("flow mode size:" + str(self.flow_mode_size))
+            # self.logger.info("flow path number:" + str(self.flow_path_number))
             hub.sleep(self.monitor_time)
             # self.show_stat()
 
@@ -123,15 +113,12 @@ class NetworkMonitor(app_manager.RyuApp):
         self.port_request_number = self.port_request_number + 1
         self.port_request_size = self.port_request_size + len(str(req))
 
-        if str(datapath.id).startswith('3'):
+        if str(datapath.id).startswith('2'):
+            req = parser.OFPFlowStatsRequest(datapath)
+            datapath.send_msg(req)
+
             self.flow_request_number = self.flow_request_number + 1
             self.flow_request_size = self.flow_request_size + len(str(req))
-        req = parser.OFPFlowStatsRequest(datapath)
-        datapath.send_msg(req)
-
-        self.flow_request_number_all = self.flow_request_number_all + 1
-        self.flow_request_size_all = self.flow_request_size_all + len(str(req))
-
 
     def get_port(self, dst_ip, access_table):
         """
@@ -273,7 +260,7 @@ class NetworkMonitor(app_manager.RyuApp):
         src_location = self.awareness.get_host_location(src)[0]
         dst_location = self.awareness.get_host_location(dst)[0]
         paths = shortest_paths.get(src_location).get(dst_location)
-        speed = link_flow[0]
+        speed = link_flow[(src, dst)][0]
 
         choose_paths = []
         choose_paths_main = {}
@@ -294,7 +281,7 @@ class NetworkMonitor(app_manager.RyuApp):
                         link_left_bandwidth = self.port_info[(pre, src_port)]
                         min_bandwidth = min(link_left_bandwidth, min_bandwidth)
                 if min_bandwidth > speed:
-                    bandwidth_speed = round(speed / min_bandwidth, 2)
+                    bandwidth_speed = round(min_bandwidth / speed, 2)
                     choose_paths.append((bandwidth_speed, path))
                     choose_paths_speed = choose_paths_speed + bandwidth_speed
             # self.logger.info(choose_paths)
@@ -317,9 +304,10 @@ class NetworkMonitor(app_manager.RyuApp):
                     choose_path = choose_paths_main[key]
                     break
 
+            # self.logger.info(choose_path)
             if choose_path:
-                eth_type = link_flow[1]
-                priority = link_flow[2]
+                eth_type = link_flow[(src, dst)][1]
+                priority = link_flow[(src, dst)][2]
                 flow_info = (eth_type, src, dst)
                 self.install_flow(self.datapaths, self.awareness.link_to_port, self.awareness.access_table, choose_path, flow_info, priority)
                 self.logger.info("change path" + src + ' ' + dst + ' to ' + str(choose_path))
@@ -331,6 +319,32 @@ class NetworkMonitor(app_manager.RyuApp):
                         link = (pre, cur)
                         (src_port, dst_port) = self.awareness.link_to_port[link]
                         self.port_info[(pre, src_port)] = self.port_info[(pre, src_port)] - speed
+                        # self.logger.info(self.port_info[(pre, src_port)])
+
+                if (src, dst) not in self.elephant_path:
+                    path_length_old = len(paths)
+
+                    src_number = int(src.split('.')[1]) + int(src.split('.')[3])
+                    dst_number = int(dst.split('.')[1]) + int(dst.split('.')[3])
+
+                    random_number = (src_number + dst_number) % path_length_old
+
+                    main_path = paths[random_number]
+                    self.elephant_path[(src, dst)] = main_path
+
+                main_path_old = self.elephant_path[(src, dst)]
+                self.elephant_path[(src, dst)] = choose_path
+                # self.logger.info(main_path_old)
+                # self.logger.info(self.elephant_path)
+
+                path_length_main = len(main_path_old)
+                if path_length_main > 1:
+                    for i in xrange(path_length_main - 1):
+                        pre = main_path_old[i]
+                        cur = main_path_old[i + 1]
+                        link = (pre, cur)
+                        (src_port, dst_port) = self.awareness.link_to_port[link]
+                        self.port_info[(pre, src_port)] = self.port_info[(pre, src_port)] + speed
                         # self.logger.info(self.port_info[(pre, src_port)])
 
     def find_max_bandwidth(self, src, dst):
@@ -407,41 +421,43 @@ class NetworkMonitor(app_manager.RyuApp):
                 self.find_new_path(src_ip, dst_ip, link_flow)
                 bandwidth = self.port_info[(src, src_port)]
                 i = i + 1
+                # self.flow_path_number = self.flow_path_number + 1
                 # self.logger.info(bandwidth)
 
     def link_status(self):
         """
             check load of links
         """
-        self.hostsList = []
-        self.flows = []
-        for key in self.elephant_info:
-            speed = self.elephant_info[key][0]
-            if speed > setting.MAX_CAPACITY * 0.1:
-                src_ip = key[0]
-                dst_ip = key[1]
-                flow = self.elephant_info[key]
-                stat = flow[3]
-                priority = flow[2]
-                self.flows.append({'src': src_ip, 'dst': dst_ip, 'demand': speed,
-                                   'converged': False, 'receiver_limited': False,
-                                   'match': stat, 'priority': priority})
-                if src_ip not in self.hostsList:
-                    self.hostsList.append(src_ip)
-                if dst_ip not in self.hostsList:
-                    self.hostsList.append(dst_ip)
-        flows = sorted([flow for flow in self.flows], key=lambda flow: (flow['src'], flow['dst']))
-        hostsList = sorted(self.hostsList)
-        estimated_flows = demand_estimation(flows, hostsList)
-        for flow in estimated_flows:
-            if flow['demand'] > 0.1:
-                src_ip = flow['src']
-                dst_ip = flow['dst']
-                flow_info = (
-                round(setting.MAX_CAPACITY * flow['demand'], 2), flow['match']['eth_type'], flow['priority'])
-                self.find_new_path(src_ip, dst_ip, flow_info)
+        bandwidth_number = 0
+        link_number = 0
+        bandwidth_all_max = 0
+
+        for link in self.awareness.link_to_port:
+            (src, dst) = link
+            (src_port, dst_port) = self.awareness.link_to_port[link]
+            bandwidth = self.port_info[(src, src_port)]
+            if bandwidth < setting.MAX_CAPACITY * 0.1:
+                self.logger.info(link)
+                self.change_flow_path(link, src, src_port)
                 self.flow_path_number = self.flow_path_number + 1
-                # self.logger.info(speed)
+            bandwidth_all = (setting.MAX_CAPACITY - self.port_info[(src, src_port)]) / setting.MAX_CAPACITY
+            bandwidth_all = round(bandwidth_all, 2)
+            if bandwidth_all > bandwidth_all_max:
+                bandwidth_all_max = bandwidth_all
+            link_number = link_number + 1
+            bandwidth_number = bandwidth_number + bandwidth_all
+        if link_number != 0:
+            monitor_time = 0.6 * bandwidth_all_max + 0.4 * round((bandwidth_number / link_number), 2)
+            if monitor_time != 0:
+                monitor_time = round((3 / monitor_time), 2)
+                self.monitor_time = int(monitor_time)
+                if self.monitor_time > 20:
+                    self.monitor_time = 20
+                # if self.monitor_number < 7:
+                #     self.monitor_time = 5
+            else:
+                self.monitor_time = 20
+            self.logger.info(self.monitor_time)
 
     def _save_stats(self, _dict, key, value, length):
         if key not in _dict:
@@ -477,18 +493,16 @@ class NetworkMonitor(app_manager.RyuApp):
         dpid = ev.msg.datapath.id
         self.flow_stats.setdefault(dpid, {})
 
-        self.flow_number_all = self.flow_number_all + 1
-        self.flow_size_all = self.flow_size_all + len(str(ev.msg))
-
-        if str(dpid).startswith('3'):
+        if str(dpid).startswith('2'):
             self.flow_number = self.flow_number + 1
             self.flow_size = self.flow_size + len(str(ev.msg))
+
             for stat in sorted([flow for flow in body if ((flow.priority not in [0, 65535]) and (flow.match.get('ipv4_src')) and (flow.match.get('ipv4_dst')))],
                                key=lambda flow: (flow.match.get('in_port'),
                                                  flow.match.get('ipv4_dst'))):
                 src = str(stat.match.get('ipv4_src'))
                 dst = str(stat.match.get('ipv4_dst'))
-                if str(dpid).startswith('3'):
+                if str(dpid).startswith('2'):
                     in_port = stat.match.get('in_port')
                     out_port = stat.instructions[0].actions[0].port
                     priority = stat.priority
@@ -513,9 +527,16 @@ class NetworkMonitor(app_manager.RyuApp):
 
                     if speed > 0:
                         if speed > setting.MAX_CAPACITY * 0.1:
+                            src_dpid = self.awareness.link_in_to[(dpid, in_port)]
+                            dst_dpid = self.awareness.link_in_to[(dpid, out_port)]
                             eth_type = stat.match.get('eth_type')
                             priority = stat.priority
-                            self.elephant_info[(src, dst)] = (speed, eth_type, priority, stat.match)
+                            if (src_dpid, dpid) not in self.elephant_info:
+                                self.elephant_info[(src_dpid, dpid)] = {}
+                            if (dpid, dst_dpid) not in self.elephant_info:
+                                self.elephant_info[(dpid, dst_dpid)] = {}
+                            self.elephant_info[(src_dpid, dpid)][(src, dst)] = (speed, eth_type, priority)
+                            self.elephant_info[(dpid, dst_dpid)][(src, dst)] = (speed, eth_type, priority)
                             # self.logger.info(self.elephant_info)
                             # self.elephant_info[key] = speed
 
