@@ -172,10 +172,9 @@ class NetworkMonitor(app_manager.RyuApp):
             match = parser.OFPMatch(
                 in_port=src_port, eth_type=flow_info[0],
                 ipv4_src=flow_info[1], ipv4_dst=flow_info[2])
-            idle_timeout = 42
 
         self.add_flow(datapath, priority + 1, match, actions,
-                      idle_timeout=idle_timeout, hard_timeout=0)
+                      idle_timeout=5, hard_timeout=0)
 
     def get_port_pair_from_link(self, link_to_port, src_dpid, dst_dpid):
         """
@@ -393,6 +392,7 @@ class NetworkMonitor(app_manager.RyuApp):
                 src_ip = key[0]
                 dst_ip = key[1]
                 flow = self.elephant_info[key]
+                # flow_info = (speed, flow[1], flow[2])
                 stat = flow[3]
                 priority = flow[2]
                 self.flows.append({'src': src_ip, 'dst': dst_ip, 'demand': speed,

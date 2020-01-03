@@ -12,6 +12,8 @@ from ryu.lib import hub
 import setting
 import time
 import random
+import math
+import numpy
 
 
 CONF = cfg.CONF
@@ -170,10 +172,9 @@ class NetworkMonitor(app_manager.RyuApp):
             match = parser.OFPMatch(
                 in_port=src_port, eth_type=flow_info[0],
                 ipv4_src=flow_info[1], ipv4_dst=flow_info[2])
-            idle_timeout = 42
 
         self.add_flow(datapath, priority + 1, match, actions,
-                      idle_timeout=idle_timeout, hard_timeout=0)
+                      idle_timeout=5, hard_timeout=0)
 
     def get_port_pair_from_link(self, link_to_port, src_dpid, dst_dpid):
         """
@@ -281,7 +282,7 @@ class NetworkMonitor(app_manager.RyuApp):
                         link_left_bandwidth = self.port_info[(pre, src_port)]
                         min_bandwidth = min(link_left_bandwidth, min_bandwidth)
                 if min_bandwidth > speed:
-                    bandwidth_speed = round(min_bandwidth / speed, 2)
+                    bandwidth_speed = round(speed / min_bandwidth, 2)
                     choose_paths.append((bandwidth_speed, path))
                     choose_paths_speed = choose_paths_speed + bandwidth_speed
             # self.logger.info(choose_paths)
@@ -384,6 +385,8 @@ class NetworkMonitor(app_manager.RyuApp):
         """
             find the flow and reroute flow
         """
+        if link not in self.elephant_info:
+            return
         link_flow = self.elephant_info[link]
         choose_flow = {}
         ifChoose = False
@@ -392,15 +395,8 @@ class NetworkMonitor(app_manager.RyuApp):
             srcs = flow[0]
             dsts = flow[1]
             speed = link_flow[flow][0]
-            max_bandwidth = self.find_max_bandwidth(srcs, dsts)
-            carry_bandwidth = speed + max_bandwidth
-            if carry_bandwidth > setting.MAX_CAPACITY * 0.9:
-                choose = 0
-            else:
-                choose = round(speed / (max_bandwidth + speed), 2)
-                ifChoose = True
-            if choose != 0:
-                choose_flow[(srcs, dsts)] = choose
+            ifChoose = True
+            choose_flow[(srcs, dsts)] = speed
             # self.logger.info(max_bandwidth)
             # self.logger.info(carry_bandwidth)
             # self.logger.info(speed)
@@ -413,14 +409,15 @@ class NetworkMonitor(app_manager.RyuApp):
             bandwidth = self.port_info[(src, src_port)]
             i = 0
             while bandwidth < setting.MAX_CAPACITY * 0.1:
-                if i > len(choose_src_dst) - 1:
+                if len(choose_src_dst) == 0:
                     break
+                i = int(len(choose_src_dst) / 2)
                 flow = choose_src_dst[i]
                 src_ip = flow[0]
                 dst_ip = flow[1]
                 self.find_new_path(src_ip, dst_ip, link_flow)
                 bandwidth = self.port_info[(src, src_port)]
-                i = i + 1
+                choose_src_dst.pop(i)
                 # self.flow_path_number = self.flow_path_number + 1
                 # self.logger.info(bandwidth)
 
@@ -447,16 +444,19 @@ class NetworkMonitor(app_manager.RyuApp):
             link_number = link_number + 1
             bandwidth_number = bandwidth_number + bandwidth_all
         if link_number != 0:
-            monitor_time = 0.6 * bandwidth_all_max + 0.4 * round((bandwidth_number / link_number), 2)
-            if monitor_time != 0:
-                monitor_time = round((3 / monitor_time), 2)
-                self.monitor_time = int(monitor_time)
-                if self.monitor_time > 20:
-                    self.monitor_time = 20
+            # monitor_time = 0.67 * bandwidth_all_max + 0.33 * round((bandwidth_number / link_number), 2)
+            # if monitor_time != 0:
+            #     monitor_time = round(monitor_time, 2)
+            monitor_time = - 10 * numpy.log2(0.9)
+            self.monitor_time = int(monitor_time)
+            if self.monitor_time > 20:
+                self.monitor_time = 20
+            if self.monitor_time < 3:
+                self.monitor_time = 3
                 # if self.monitor_number < 7:
                 #     self.monitor_time = 5
-            else:
-                self.monitor_time = 20
+            # else:
+            #     self.monitor_time = 20
             self.logger.info(self.monitor_time)
 
     def _save_stats(self, _dict, key, value, length):
@@ -539,6 +539,7 @@ class NetworkMonitor(app_manager.RyuApp):
                             self.elephant_info[(dpid, dst_dpid)][(src, dst)] = (speed, eth_type, priority)
                             # self.logger.info(self.elephant_info)
                             # self.elephant_info[key] = speed
+
 
     @set_ev_cls(ofp_event.EventOFPPortStatsReply, MAIN_DISPATCHER)
     def _port_stats_reply_handler(self, ev):

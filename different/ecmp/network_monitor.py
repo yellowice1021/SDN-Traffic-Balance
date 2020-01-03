@@ -46,6 +46,7 @@ class NetworkMonitor(app_manager.RyuApp):
         self.flow_mode_number = 0
         self.flow_mode_size = 0
         self.flow_path_number = 0
+        self.link_bandwidth_flow = []
         self.awareness = lookup_service_brick('awareness')
         self.graph = None
         self.capabilities = None
@@ -170,10 +171,9 @@ class NetworkMonitor(app_manager.RyuApp):
             match = parser.OFPMatch(
                 in_port=src_port, eth_type=flow_info[0],
                 ipv4_src=flow_info[1], ipv4_dst=flow_info[2])
-            idle_timeout = 42
 
         self.add_flow(datapath, priority + 1, match, actions,
-                      idle_timeout=idle_timeout, hard_timeout=0)
+                      idle_timeout=5, hard_timeout=0)
 
     def get_port_pair_from_link(self, link_to_port, src_dpid, dst_dpid):
         """
@@ -436,10 +436,6 @@ class NetworkMonitor(app_manager.RyuApp):
             (src, dst) = link
             (src_port, dst_port) = self.awareness.link_to_port[link]
             bandwidth = self.port_info[(src, src_port)]
-            if bandwidth < setting.MAX_CAPACITY * 0.1:
-                self.logger.info(link)
-                self.change_flow_path(link, src, src_port)
-                self.flow_path_number = self.flow_path_number + 1
             bandwidth_all = (setting.MAX_CAPACITY - self.port_info[(src, src_port)]) / setting.MAX_CAPACITY
             bandwidth_all = round(bandwidth_all, 2)
             if bandwidth_all > bandwidth_all_max:
@@ -447,17 +443,9 @@ class NetworkMonitor(app_manager.RyuApp):
             link_number = link_number + 1
             bandwidth_number = bandwidth_number + bandwidth_all
         if link_number != 0:
-            monitor_time = 0.6 * bandwidth_all_max + 0.4 * round((bandwidth_number / link_number), 2)
-            if monitor_time != 0:
-                monitor_time = round((3 / monitor_time), 2)
-                self.monitor_time = int(monitor_time)
-                if self.monitor_time > 20:
-                    self.monitor_time = 20
-                # if self.monitor_number < 7:
-                #     self.monitor_time = 5
-            else:
-                self.monitor_time = 20
-            self.logger.info(self.monitor_time)
+            all_bandwidth = 0.6 * bandwidth_all + 0.4 * round((bandwidth_number / link_number), 2)
+            self.link_bandwidth_flow.append(all_bandwidth)
+            self.logger.info(self.link_bandwidth_flow)
 
     def _save_stats(self, _dict, key, value, length):
         if key not in _dict:

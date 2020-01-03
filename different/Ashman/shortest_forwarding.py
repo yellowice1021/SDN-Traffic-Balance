@@ -10,6 +10,7 @@ from ryu.lib.packet import ethernet
 from ryu.lib.packet import ipv4
 from ryu.lib.packet import arp
 from ryu.lib.packet import udp
+from ryu.lib.packet import tcp
 
 import network_awareness
 import network_monitor
@@ -159,10 +160,8 @@ class ShortestForwarding(app_manager.RyuApp):
                 in_port=src_port, eth_type=flow_info[0],
                 ipv4_src=flow_info[1], ipv4_dst=flow_info[2])
 
-            idle_timeout = 42
-
         self.add_flow(datapath, 40, match, actions,
-                      idle_timeout=idle_timeout, hard_timeout=0)
+                      idle_timeout=5, hard_timeout=0)
 
     def get_port(self, dst_ip, access_table):
         """
@@ -360,6 +359,7 @@ class ShortestForwarding(app_manager.RyuApp):
         arp_pkt = pkt.get_protocol(arp.arp)
         ip_pkt = pkt.get_protocol(ipv4.ipv4)
         udp_pkt = pkt.get_protocol(udp.udp)
+        tcp_pkt = pkt.get_protocol(tcp.tcp)
 
         if isinstance(arp_pkt, arp.arp):
             self.logger.debug("ARP processing")
@@ -371,11 +371,11 @@ class ShortestForwarding(app_manager.RyuApp):
                 eth_type = pkt.get_protocols(ethernet.ethernet)[0].ethertype
                 src = ip_pkt.src
                 dst = ip_pkt.dst
-                if isinstance(udp_pkt, udp.udp):
-                    if (src, dst) not in self.elephant_info:
-                        self.shortest_forwarding(msg, eth_type, ip_pkt.src, ip_pkt.dst)
-                        self.elephant_info.append((src, dst))
-                        if len(self.elephant_info) > 1:
-                            self.elephant_info.pop(0)
-                else:
+                if isinstance(tcp_pkt, tcp.tcp):
+                    # if (src, dst) not in self.elephant_info:
                     self.shortest_forwarding(msg, eth_type, ip_pkt.src, ip_pkt.dst)
+                #         self.elephant_info.append((src, dst))
+                #         if len(self.elephant_info) > 1:
+                #             self.elephant_info.pop(0)
+                # else:
+                #     self.shortest_forwarding(msg, eth_type, ip_pkt.src, ip_pkt.dst)

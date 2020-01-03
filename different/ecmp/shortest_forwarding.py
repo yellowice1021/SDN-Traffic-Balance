@@ -160,10 +160,8 @@ class ShortestForwarding(app_manager.RyuApp):
                 in_port=src_port, eth_type=flow_info[0],
                 ipv4_src=flow_info[1], ipv4_dst=flow_info[2])
 
-            idle_timeout = 42
-
         self.add_flow(datapath, 40, match, actions,
-                      idle_timeout=idle_timeout, hard_timeout=0)
+                      idle_timeout=5, hard_timeout=0)
 
     def get_port(self, dst_ip, access_table):
         """
@@ -373,10 +371,10 @@ class ShortestForwarding(app_manager.RyuApp):
                 src = ip_pkt.src
                 dst = ip_pkt.dst
                 if isinstance(tcp_pkt, tcp.tcp):
-                    if (src, dst) not in self.elephant_info:
-                        self.shortest_forwarding(msg, eth_type, ip_pkt.src, ip_pkt.dst)
-                        self.elephant_info.append((src, dst))
-                        if len(self.elephant_info) > 1:
-                            self.elephant_info.pop(0)
-                else:
+                    # if (src, dst) not in self.elephant_info:
                     self.shortest_forwarding(msg, eth_type, ip_pkt.src, ip_pkt.dst)
+                #         self.elephant_info.append((src, dst))
+                #         if len(self.elephant_info) > 1:
+                #             self.elephant_info.pop(0)
+                # else:
+                #     self.shortest_forwarding(msg, eth_type, ip_pkt.src, ip_pkt.dst)
