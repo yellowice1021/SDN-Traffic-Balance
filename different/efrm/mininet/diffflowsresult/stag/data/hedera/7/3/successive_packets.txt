@@ -1,0 +1,92 @@
+PING 10.8.0.1 (10.8.0.1) 56(84) bytes of data.
+PING 10.3.0.1 (10.3.0.1) 56(84) bytes of data.
+PING 10.1.0.1 (10.1.0.1) 56(84) bytes of data.
+PING 10.6.0.2 (10.6.0.2) 56(84) bytes of data.
+PING 10.7.0.1 (10.7.0.1) 56(84) bytes of data.
+PING 10.7.0.2 (10.7.0.2) 56(84) bytes of data.
+PING 10.8.0.2 (10.8.0.2) 56(84) bytes of data.
+PING 10.3.0.1 (10.3.0.1) 56(84) bytes of data.
+PING 10.5.0.2 (10.5.0.2) 56(84) bytes of data.
+PING 10.3.0.2 (10.3.0.2) 56(84) bytes of data.
+PING 10.7.0.1 (10.7.0.1) 56(84) bytes of data.
+PING 10.1.0.1 (10.1.0.1) 56(84) bytes of data.
+PING 10.7.0.2 (10.7.0.2) 56(84) bytes of data.
+PING 10.6.0.1 (10.6.0.1) 56(84) bytes of data.
+PING 10.4.0.2 (10.4.0.2) 56(84) bytes of data.
+PING 10.4.0.2 (10.4.0.2) 56(84) bytes of data.
+PING 10.1.0.1 (10.1.0.1) 56(84) bytes of data.
+PING 10.7.0.1 (10.7.0.1) 56(84) bytes of data.
+PING 10.7.0.2 (10.7.0.2) 56(84) bytes of data.
+PING 10.7.0.1 (10.7.0.1) 56(84) bytes of data.
+
+--- 10.8.0.1 ping statistics ---
+600 packets transmitted, 600 received, 0% packet loss, time 59909ms
+rtt min/avg/max/mdev = 0.033/0.087/5.716/0.278 ms
+
+--- 10.1.0.1 ping statistics ---
+600 packets transmitted, 600 received, 0% packet loss, time 59909ms
+rtt min/avg/max/mdev = 0.017/0.152/23.533/1.370 ms
+
+--- 10.7.0.2 ping statistics ---
+600 packets transmitted, 600 received, 0% packet loss, time 59899ms
+rtt min/avg/max/mdev = 0.029/0.073/7.145/0.304 ms
+
+--- 10.6.0.2 ping statistics ---
+600 packets transmitted, 600 received, 0% packet loss, time 59929ms
+rtt min/avg/max/mdev = 0.017/0.054/9.548/0.394 ms
+
+--- 10.3.0.1 ping statistics ---
+600 packets transmitted, 600 received, 0% packet loss, time 59940ms
+rtt min/avg/max/mdev = 0.017/5.635/299.848/33.230 ms, pipe 3
+
+--- 10.8.0.2 ping statistics ---
+600 packets transmitted, 568 received, 5% packet loss, time 61112ms
+rtt min/avg/max/mdev = 0.022/902.333/1174.659/349.294 ms, pipe 12
+
+--- 10.7.0.1 ping statistics ---
+600 packets transmitted, 558 received, 7% packet loss, time 61269ms
+rtt min/avg/max/mdev = 0.030/897.058/1172.074/350.769 ms, pipe 12
+
+--- 10.3.0.1 ping statistics ---
+600 packets transmitted, 564 received, 6% packet loss, time 61235ms
+rtt min/avg/max/mdev = 0.026/905.405/1428.065/354.627 ms, pipe 14
+
+--- 10.5.0.2 ping statistics ---
+600 packets transmitted, 383 received, 36% packet loss, time 61935ms
+rtt min/avg/max/mdev = 0.018/1046.379/1210.426/340.734 ms, pipe 12
+
+--- 10.1.0.1 ping statistics ---
+600 packets transmitted, 238 received, 60% packet loss, time 63179ms
+rtt min/avg/max/mdev = 1141.152/1171.487/1216.420/9.532 ms, pipe 12
+
+--- 10.3.0.2 ping statistics ---
+600 packets transmitted, 308 received, 48% packet loss, time 62631ms
+rtt min/avg/max/mdev = 1546.447/2023.862/2402.859/290.180 ms, pipe 23
+
+--- 10.7.0.2 ping statistics ---
+600 packets transmitted, 294 received, 51% packet loss, time 62835ms
+rtt min/avg/max/mdev = 1568.540/2022.038/2620.517/290.491 ms, pipe 25
+
+--- 10.1.0.1 ping statistics ---
+600 packets transmitted, 238 received, +24 errors, 60% packet loss, time 66852ms
+rtt min/avg/max/mdev = 634.708/1164.454/1286.208/52.351 ms, pipe 12
+
+--- 10.6.0.1 ping statistics ---
+600 packets transmitted, 318 received, +12 errors, 47% packet loss, time 64417ms
+rtt min/avg/max/mdev = 1875.406/2447.066/3159.417/244.673 ms, pipe 30
+
+--- 10.4.0.2 ping statistics ---
+600 packets transmitted, 522 received, +12 errors, 13% packet loss, time 63706ms
+rtt min/avg/max/mdev = 0.040/172.609/3588.943/425.453 ms, pipe 24
+
+--- 10.4.0.2 ping statistics ---
+600 packets transmitted, 246 received, +12 errors, 59% packet loss, time 64620ms
+rtt min/avg/max/mdev = 1185.671/1507.114/3333.391/502.951 ms, pipe 32
+
+--- 10.7.0.2 ping statistics ---
+600 packets transmitted, 240 received, +24 errors, 60% packet loss, time 66433ms
+rtt min/avg/max/mdev = 1029.548/2352.264/3560.636/198.080 ms, pipe 34
+
+--- 10.7.0.1 ping statistics ---
+600 packets transmitted, 227 received, 62% packet loss, time 63489ms
+rtt min/avg/max/mdev = 2286.176/3179.052/5807.836/453.067 ms, pipe 55

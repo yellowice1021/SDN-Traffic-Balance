@@ -1,0 +1,92 @@
+PING 10.8.0.1 (10.8.0.1) 56(84) bytes of data.
+PING 10.6.0.2 (10.6.0.2) 56(84) bytes of data.
+PING 10.2.0.1 (10.2.0.1) 56(84) bytes of data.
+PING 10.4.0.2 (10.4.0.2) 56(84) bytes of data.
+PING 10.7.0.2 (10.7.0.2) 56(84) bytes of data.
+PING 10.2.0.2 (10.2.0.2) 56(84) bytes of data.
+PING 10.6.0.2 (10.6.0.2) 56(84) bytes of data.
+PING 10.3.0.2 (10.3.0.2) 56(84) bytes of data.
+PING 10.3.0.1 (10.3.0.1) 56(84) bytes of data.
+PING 10.3.0.2 (10.3.0.2) 56(84) bytes of data.
+PING 10.5.0.2 (10.5.0.2) 56(84) bytes of data.
+PING 10.2.0.1 (10.2.0.1) 56(84) bytes of data.
+PING 10.5.0.2 (10.5.0.2) 56(84) bytes of data.
+PING 10.2.0.1 (10.2.0.1) 56(84) bytes of data.
+PING 10.2.0.1 (10.2.0.1) 56(84) bytes of data.
+PING 10.8.0.1 (10.8.0.1) 56(84) bytes of data.
+PING 10.7.0.1 (10.7.0.1) 56(84) bytes of data.
+PING 10.8.0.2 (10.8.0.2) 56(84) bytes of data.
+PING 10.3.0.1 (10.3.0.1) 56(84) bytes of data.
+PING 10.3.0.1 (10.3.0.1) 56(84) bytes of data.
+
+--- 10.8.0.1 ping statistics ---
+600 packets transmitted, 600 received, 0% packet loss, time 59898ms
+rtt min/avg/max/mdev = 0.018/0.039/0.265/0.017 ms
+
+--- 10.7.0.2 ping statistics ---
+600 packets transmitted, 600 received, 0% packet loss, time 59897ms
+rtt min/avg/max/mdev = 0.017/0.042/3.642/0.147 ms
+
+--- 10.2.0.2 ping statistics ---
+600 packets transmitted, 600 received, 0% packet loss, time 59909ms
+rtt min/avg/max/mdev = 0.008/0.326/21.521/2.007 ms
+
+--- 10.6.0.2 ping statistics ---
+600 packets transmitted, 600 received, 0% packet loss, time 59904ms
+rtt min/avg/max/mdev = 0.023/0.480/29.590/2.737 ms
+
+--- 10.2.0.1 ping statistics ---
+600 packets transmitted, 600 received, 0% packet loss, time 59924ms
+rtt min/avg/max/mdev = 0.007/0.370/21.470/1.942 ms
+
+--- 10.4.0.2 ping statistics ---
+600 packets transmitted, 600 received, 0% packet loss, time 59928ms
+rtt min/avg/max/mdev = 0.026/0.300/14.706/1.678 ms
+
+--- 10.3.0.2 ping statistics ---
+600 packets transmitted, 297 received, 50% packet loss, time 62517ms
+rtt min/avg/max/mdev = 1148.018/1172.346/1227.642/11.107 ms, pipe 12
+
+--- 10.3.0.2 ping statistics ---
+600 packets transmitted, 302 received, 49% packet loss, time 62596ms
+rtt min/avg/max/mdev = 1147.551/1172.089/1217.221/10.761 ms, pipe 12
+
+--- 10.3.0.1 ping statistics ---
+600 packets transmitted, 370 received, 38% packet loss, time 61966ms
+rtt min/avg/max/mdev = 1101.722/1187.671/2458.891/67.245 ms, pipe 23
+
+--- 10.6.0.2 ping statistics ---
+600 packets transmitted, 352 received, 41% packet loss, time 62078ms
+rtt min/avg/max/mdev = 822.252/1164.050/2410.792/104.648 ms, pipe 23
+
+--- 10.5.0.2 ping statistics ---
+600 packets transmitted, 239 received, +12 errors, 60% packet loss, time 64600ms
+rtt min/avg/max/mdev = 1156.157/1200.996/1419.531/16.583 ms, pipe 14
+
+--- 10.5.0.2 ping statistics ---
+600 packets transmitted, 119 received, 80% packet loss, time 63797ms
+rtt min/avg/max/mdev = 2032.843/2364.819/2423.909/93.359 ms, pipe 24
+
+--- 10.2.0.1 ping statistics ---
+600 packets transmitted, 277 received, +12 errors, 53% packet loss, time 64252ms
+rtt min/avg/max/mdev = 1151.601/1197.984/2406.228/73.071 ms, pipe 23
+
+--- 10.2.0.1 ping statistics ---
+600 packets transmitted, 298 received, +12 errors, 50% packet loss, time 64222ms
+rtt min/avg/max/mdev = 1197.479/1209.271/2430.175/71.513 ms, pipe 23
+
+--- 10.7.0.1 ping statistics ---
+600 packets transmitted, 171 received, +12 errors, 71% packet loss, time 65140ms
+rtt min/avg/max/mdev = 2148.047/2380.755/2481.505/60.629 ms, pipe 24
+
+--- 10.2.0.1 ping statistics ---
+600 packets transmitted, 176 received, 70% packet loss, time 64325ms
+rtt min/avg/max/mdev = 1197.791/1216.904/3101.794/142.582 ms, pipe 20
+
+--- 10.8.0.1 ping statistics ---
+600 packets transmitted, 92 received, +12 errors, 84% packet loss, time 65797ms
+rtt min/avg/max/mdev = 505.581/2229.204/2423.406/457.474 ms, pipe 23
+
+--- 10.8.0.2 ping statistics ---
+600 packets transmitted, 278 received, +12 errors, 53% packet loss, time 64747ms
+rtt min/avg/max/mdev = 2273.878/2360.921/3881.470/94.687 ms, pipe 33

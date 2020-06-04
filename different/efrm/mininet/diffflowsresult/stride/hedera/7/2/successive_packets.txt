@@ -1,0 +1,96 @@
+PING 10.8.0.2 (10.8.0.2) 56(84) bytes of data.
+PING 10.8.0.1 (10.8.0.1) 56(84) bytes of data.
+PING 10.1.0.1 (10.1.0.1) 56(84) bytes of data.
+PING 10.3.0.1 (10.3.0.1) 56(84) bytes of data.
+PING 10.3.0.2 (10.3.0.2) 56(84) bytes of data.
+PING 10.7.0.1 (10.7.0.1) 56(84) bytes of data.
+PING 10.7.0.2 (10.7.0.2) 56(84) bytes of data.
+PING 10.2.0.2 (10.2.0.2) 56(84) bytes of data.
+PING 10.6.0.2 (10.6.0.2) 56(84) bytes of data.
+PING 10.2.0.1 (10.2.0.1) 56(84) bytes of data.
+PING 10.6.0.1 (10.6.0.1) 56(84) bytes of data.
+PING 10.4.0.2 (10.4.0.2) 56(84) bytes of data.
+PING 10.4.0.1 (10.4.0.1) 56(84) bytes of data.
+PING 10.8.0.2 (10.8.0.2) 56(84) bytes of data.
+PING 10.8.0.1 (10.8.0.1) 56(84) bytes of data.
+PING 10.1.0.2 (10.1.0.2) 56(84) bytes of data.
+PING 10.5.0.2 (10.5.0.2) 56(84) bytes of data.
+PING 10.5.0.1 (10.5.0.1) 56(84) bytes of data.
+PING 10.1.0.2 (10.1.0.2) 56(84) bytes of data.
+PING 10.1.0.1 (10.1.0.1) 56(84) bytes of data.
+
+--- 10.8.0.2 ping statistics ---
+600 packets transmitted, 600 received, 0% packet loss, time 59904ms
+rtt min/avg/max/mdev = 0.025/0.059/4.485/0.186 ms
+
+--- 10.1.0.1 ping statistics ---
+600 packets transmitted, 600 received, 0% packet loss, time 59919ms
+rtt min/avg/max/mdev = 0.039/0.193/41.372/1.775 ms
+
+--- 10.8.0.1 ping statistics ---
+600 packets transmitted, 600 received, 0% packet loss, time 59926ms
+rtt min/avg/max/mdev = 0.022/0.069/1.758/0.112 ms
+
+--- 10.7.0.2 ping statistics ---
+600 packets transmitted, 600 received, 0% packet loss, time 59917ms
+rtt min/avg/max/mdev = 0.030/0.170/33.357/1.454 ms
+
+--- 10.6.0.2 ping statistics ---
+600 packets transmitted, 600 received, 0% packet loss, time 59919ms
+rtt min/avg/max/mdev = 0.034/0.191/31.790/1.478 ms
+
+--- 10.7.0.1 ping statistics ---
+600 packets transmitted, 600 received, 0% packet loss, time 59923ms
+rtt min/avg/max/mdev = 0.029/0.193/34.354/1.490 ms
+
+--- 10.3.0.1 ping statistics ---
+600 packets transmitted, 600 received, 0% packet loss, time 59921ms
+rtt min/avg/max/mdev = 0.032/0.181/19.747/0.937 ms
+
+--- 10.2.0.2 ping statistics ---
+600 packets transmitted, 600 received, 0% packet loss, time 59923ms
+rtt min/avg/max/mdev = 0.028/0.175/23.247/1.051 ms
+
+--- 10.3.0.2 ping statistics ---
+600 packets transmitted, 600 received, 0% packet loss, time 59920ms
+rtt min/avg/max/mdev = 0.035/0.145/17.963/0.785 ms
+
+--- 10.2.0.1 ping statistics ---
+600 packets transmitted, 600 received, 0% packet loss, time 59948ms
+rtt min/avg/max/mdev = 0.019/2.992/185.612/19.084 ms, pipe 2
+
+--- 10.6.0.1 ping statistics ---
+600 packets transmitted, 600 received, 0% packet loss, time 59952ms
+rtt min/avg/max/mdev = 0.019/3.028/186.008/19.141 ms, pipe 2
+
+--- 10.1.0.2 ping statistics ---
+600 packets transmitted, 600 received, 0% packet loss, time 60241ms
+rtt min/avg/max/mdev = 0.037/63.607/2189.547/273.387 ms, pipe 21
+
+--- 10.4.0.2 ping statistics ---
+600 packets transmitted, 549 received, 8% packet loss, time 60807ms
+rtt min/avg/max/mdev = 61.508/980.278/1188.808/346.373 ms, pipe 12
+
+--- 10.8.0.2 ping statistics ---
+600 packets transmitted, 550 received, 8% packet loss, time 60875ms
+rtt min/avg/max/mdev = 58.636/980.532/1187.440/346.403 ms, pipe 12
+
+--- 10.8.0.1 ping statistics ---
+600 packets transmitted, 525 received, 12% packet loss, time 60964ms
+rtt min/avg/max/mdev = 59.542/971.591/1187.067/351.990 ms, pipe 12
+
+--- 10.4.0.1 ping statistics ---
+600 packets transmitted, 541 received, 9% packet loss, time 60982ms
+rtt min/avg/max/mdev = 60.422/977.315/1186.378/348.209 ms, pipe 12
+
+--- 10.1.0.2 ping statistics ---
+600 packets transmitted, 134 received, +12 errors, 77% packet loss, time 66025ms
+rtt min/avg/max/mdev = 1172.206/1768.869/2410.976/581.034 ms, pipe 23
+
+--- 10.5.0.2 ping statistics ---
+600 packets transmitted, 148 received, 75% packet loss, time 63631ms
+rtt min/avg/max/mdev = 1171.456/1940.922/4110.675/583.743 ms, pipe 39
+
+--- 10.5.0.1 ping statistics ---
+600 packets transmitted, 133 received, 77% packet loss, time 63741ms
+rtt min/avg/max/mdev = 1170.731/1845.312/4835.271/652.292 ms, pipe 45

@@ -1,0 +1,106 @@
+PING 10.8.0.2 (10.8.0.2) 56(84) bytes of data.
+PING 10.8.0.2 (10.8.0.2) 56(84) bytes of data.
+PING 10.6.0.1 (10.6.0.1) 56(84) bytes of data.
+PING 10.7.0.1 (10.7.0.1) 56(84) bytes of data.
+PING 10.8.0.2 (10.8.0.2) 56(84) bytes of data.
+PING 10.5.0.1 (10.5.0.1) 56(84) bytes of data.
+PING 10.8.0.2 (10.8.0.2) 56(84) bytes of data.
+PING 10.6.0.1 (10.6.0.1) 56(84) bytes of data.
+PING 10.6.0.1 (10.6.0.1) 56(84) bytes of data.
+PING 10.4.0.1 (10.4.0.1) 56(84) bytes of data.
+PING 10.4.0.2 (10.4.0.2) 56(84) bytes of data.
+PING 10.3.0.2 (10.3.0.2) 56(84) bytes of data.
+PING 10.8.0.2 (10.8.0.2) 56(84) bytes of data.
+PING 10.8.0.1 (10.8.0.1) 56(84) bytes of data.
+PING 10.8.0.1 (10.8.0.1) 56(84) bytes of data.
+PING 10.3.0.1 (10.3.0.1) 56(84) bytes of data.
+PING 10.6.0.1 (10.6.0.1) 56(84) bytes of data.
+PING 10.2.0.1 (10.2.0.1) 56(84) bytes of data.
+PING 10.2.0.2 (10.2.0.2) 56(84) bytes of data.
+PING 10.3.0.1 (10.3.0.1) 56(84) bytes of data.
+PING 10.2.0.1 (10.2.0.1) 56(84) bytes of data.
+PING 10.4.0.1 (10.4.0.1) 56(84) bytes of data.
+
+--- 10.6.0.1 ping statistics ---
+600 packets transmitted, 600 received, 0% packet loss, time 59900ms
+rtt min/avg/max/mdev = 0.015/0.034/0.301/0.017 ms
+
+--- 10.8.0.2 ping statistics ---
+600 packets transmitted, 600 received, 0% packet loss, time 59899ms
+rtt min/avg/max/mdev = 0.016/0.104/5.543/0.303 ms
+
+--- 10.8.0.2 ping statistics ---
+600 packets transmitted, 600 received, 0% packet loss, time 59898ms
+rtt min/avg/max/mdev = 0.016/0.077/5.027/0.269 ms
+
+--- 10.7.0.1 ping statistics ---
+600 packets transmitted, 600 received, 0% packet loss, time 59906ms
+rtt min/avg/max/mdev = 0.018/0.121/3.849/0.274 ms
+
+--- 10.5.0.1 ping statistics ---
+600 packets transmitted, 600 received, 0% packet loss, time 59897ms
+rtt min/avg/max/mdev = 0.029/0.094/6.352/0.325 ms
+
+--- 10.8.0.2 ping statistics ---
+600 packets transmitted, 600 received, 0% packet loss, time 60327ms
+rtt min/avg/max/mdev = 0.525/78.784/153.528/43.715 ms, pipe 2
+
+--- 10.6.0.1 ping statistics ---
+600 packets transmitted, 600 received, 0% packet loss, time 60362ms
+rtt min/avg/max/mdev = 0.648/78.818/153.559/43.706 ms, pipe 2
+
+--- 10.8.0.2 ping statistics ---
+600 packets transmitted, 600 received, 0% packet loss, time 60371ms
+rtt min/avg/max/mdev = 0.530/78.843/153.481/43.812 ms, pipe 2
+
+--- 10.6.0.1 ping statistics ---
+600 packets transmitted, 600 received, 0% packet loss, time 60365ms
+rtt min/avg/max/mdev = 1.429/78.927/153.553/43.741 ms, pipe 2
+
+--- 10.8.0.2 ping statistics ---
+600 packets transmitted, 588 received, +12 errors, 2% packet loss, time 61880ms
+rtt min/avg/max/mdev = 0.032/13.722/1225.538/105.601 ms, pipe 12
+
+--- 10.4.0.1 ping statistics ---
+600 packets transmitted, 356 received, 40% packet loss, time 62397ms
+rtt min/avg/max/mdev = 1186.905/1228.905/1276.592/26.251 ms, pipe 13
+
+--- 10.3.0.1 ping statistics ---
+600 packets transmitted, 341 received, +12 errors, 43% packet loss, time 64395ms
+rtt min/avg/max/mdev = 25.370/1056.633/1286.565/337.834 ms, pipe 13
+
+--- 10.8.0.1 ping statistics ---
+600 packets transmitted, 260 received, +12 errors, 56% packet loss, time 64700ms
+rtt min/avg/max/mdev = 112.207/1060.058/1439.990/384.193 ms, pipe 14
+
+--- 10.4.0.2 ping statistics ---
+600 packets transmitted, 266 received, 55% packet loss, time 62995ms
+rtt min/avg/max/mdev = 25.336/1620.817/2395.833/648.538 ms, pipe 23
+
+--- 10.8.0.1 ping statistics ---
+600 packets transmitted, 347 received, 42% packet loss, time 64196ms
+rtt min/avg/max/mdev = 25.556/1061.740/2415.255/342.487 ms, pipe 23
+
+--- 10.2.0.2 ping statistics ---
+600 packets transmitted, 299 received, +24 errors, 50% packet loss, time 66032ms
+rtt min/avg/max/mdev = 0.034/976.946/1505.809/381.048 ms, pipe 15
+
+--- 10.6.0.1 ping statistics ---
+600 packets transmitted, 340 received, +12 errors, 43% packet loss, time 65227ms
+rtt min/avg/max/mdev = 1143.218/1238.876/2447.275/71.346 ms, pipe 14
+
+--- 10.2.0.1 ping statistics ---
+600 packets transmitted, 283 received, +12 errors, 52% packet loss, time 65644ms
+rtt min/avg/max/mdev = 0.037/979.885/2658.218/393.913 ms, pipe 14
+
+--- 10.3.0.1 ping statistics ---
+600 packets transmitted, 222 received, +24 errors, 63% packet loss, time 66667ms
+rtt min/avg/max/mdev = 125.942/2123.510/2734.935/482.818 ms, pipe 26
+
+--- 10.3.0.2 ping statistics ---
+600 packets transmitted, 240 received, 60% packet loss, time 64107ms
+rtt min/avg/max/mdev = 1211.099/1883.641/4286.901/464.252 ms, pipe 31
+
+--- 10.2.0.1 ping statistics ---
+600 packets transmitted, 366 received, +36 errors, 39% packet loss, time 67635ms
+rtt min/avg/max/mdev = 0.046/1231.058/2550.289/236.854 ms, pipe 24

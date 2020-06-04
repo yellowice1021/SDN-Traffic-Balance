@@ -1,0 +1,12 @@
+------------------------------------------------------------
+Server listening on UDP port 5001
+Receiving 1470 byte datagrams
+UDP buffer size:  208 KByte (default)
+------------------------------------------------------------
+[  3] local 10.6.0.2 port 5001 connected with 10.5.0.2 port 36011
+[  4] local 10.6.0.2 port 5001 connected with 10.1.0.1 port 41802
+[ ID] Interval       Transfer     Bandwidth        Jitter   Lost/Total Datagrams
+[  3]  0.0-136.4 sec  79.4 MBytes  4.88 Mbits/sec   0.214 ms  853/57491 (1.5%)
+[  3]  0.0-136.4 sec  1 datagrams received out-of-order
+[  4]  0.0-81.3 sec  47.3 MBytes  4.88 Mbits/sec   0.405 ms  310/34057 (0.91%)
+[  4]  0.0-81.3 sec  1 datagrams received out-of-order
