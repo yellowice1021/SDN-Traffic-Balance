@@ -1,0 +1,143 @@
+ecmp
+1
+ecmp average_delay:0.0877741935484
+ecmp mean_delay:0.897064516129
+ecmp packet_loss:0.0
+
+2
+ecmp bandwidth:1.0
+ecmp average_delay:0.096064516129
+ecmp mean_delay:0.980419354839
+ecmp packet_loss:0.0
+ecmp bandwidth:1.0
+
+3
+ecmp average_delay:0.104677419355
+ecmp mean_delay:0.849483870968
+ecmp packet_loss:0.0
+ecmp bandwidth:1.0
+
+4
+ecmp average_delay:0.107580645161
+ecmp mean_delay:0.925387096774
+ecmp packet_loss:0.0
+ecmp bandwidth:1.0
+
+
+5
+ecmp average_delay:154.390612903
+ecmp mean_delay:16.2488387097
+ecmp packet_loss:0.0595161290323
+ecmp bandwidth:0.905416666667
+
+6
+ecmp average_delay:153.118806452
+ecmp mean_delay:13.0983870968
+ecmp packet_loss:0.0461827956989
+ecmp bandwidth:0.927857142857
+
+7
+ecmp average_delay:307.745580645
+ecmp mean_delay:34.3374516129
+ecmp packet_loss:0.117795698925
+ecmp bandwidth:0.86375
+
+8
+ecmp average_delay:417.983387097
+ecmp mean_delay:46.8309677419
+ecmp packet_loss:0.128817204301
+ecmp bandwidth:0.874444444444
+
+9
+ecmp average_delay:420.356
+ecmp mean_delay:41.9701935484
+ecmp packet_loss:0.0823655913978
+ecmp bandwidth:0.88475
+
+10
+ecmp average_delay:609.095193548
+ecmp mean_delay:61.9879677419
+ecmp packet_loss:0.124946236559
+ecmp bandwidth:0.811363636364
+
+11
+ecmp average_delay:604.447935484
+ecmp mean_delay:49.2091290323
+ecmp packet_loss:0.146720430108
+ecmp bandwidth:0.8175
+
+12
+ecmp average_delay:918.374433333
+ecmp mean_delay:132.154133333
+ecmp packet_loss:0.194
+ecmp bandwidth:0.783653846154
+
+diffflows
+5
+diffflows average_delay:125.865342857
+diffflows mean_delay:18.6951857143
+diffflows packet_loss:0.031619047619
+diffflows bandwidth:1.0
+
+6
+diffflows average_delay:135.1228
+diffflows mean_delay:9.16354285714
+diffflows packet_loss:0.0349047619048
+diffflows bandwidth:0.904166666667
+
+7
+diffflows average_delay:134.8648
+diffflows mean_delay:4.29657142857
+diffflows packet_loss:0.0394285714286
+diffflows bandwidth:0.916785714286
+
+8
+diffflows average_delay:136.769257143
+diffflows mean_delay:14.0018285714
+diffflows packet_loss:0.0478571428571
+diffflows bandwidth:0.92875
+
+9
+diffflows average_delay:161.105885714
+diffflows mean_delay:25.245
+diffflows packet_loss:0.0410476190476
+diffflows bandwidth:0.932045454545
+
+10
+diffflows average_delay:202.145828571
+diffflows mean_delay:14.1470571429
+diffflows packet_loss:0.0600476190476
+diffflows bandwidth:0.9265
+
+11
+diffflows average_delay:253.692242857
+diffflows mean_delay:14.0745571429
+diffflows packet_loss:0.0760714285714
+diffflows bandwidth:0.811818181818
+
+12
+diffflows average_delay:253.243542857
+diffflows mean_delay:27.0987857143
+diffflows packet_loss:0.0875952380952
+diffflows bandwidth:0.840208333333
+
+ecmp average_delay:983.4318
+ecmp mean_delay:293.5265
+ecmp packet_loss:0.20025
+ecmp bandwidth:0.811692307692
+ecmp throughout:512.507150984
+hedera average_delay:301.9328
+hedera mean_delay:129.68925
+hedera packet_loss:0.03925
+hedera bandwidth:0.869428571429
+hedera throughout:580.588854868
+DSFM average_delay:137.2797
+DSFM mean_delay:71.6521
+DSFM packet_loss:0.0025
+DSFM bandwidth:0.978142857143
+DSFM throughout:652.798809058
+
+
+
+
+
